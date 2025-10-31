@@ -75,6 +75,41 @@ class Vehicle:
         return False
 
 
+class Pedestrian:
+    """Класс пешехода"""
+    
+    def __init__(self, id):
+        self.id = id
+        self.position = (0, 0)
+        self.speed = 1.0
+        self.waiting = False
+        self.waiting_time = 0
+        self.crossing = False
+        self.crossed = False
+
+    def move(self):
+        if not self.waiting and not self.crossed:
+            # Логика движения пешехода
+            pass
+
+
+class Crosswalk:
+    """Класс пешеходного перехода"""
+    
+    def __init__(self, id, position, width):
+        self.id = id
+        self.position = position  # (x, y) координаты
+        self.width = width
+        self.pedestrians = []  # пешеходы на переходе
+        self.traffic_light = None  # светофор для пешеходов
+
+    def add_pedestrian(self, pedestrian):
+        self.pedestrians.append(pedestrian)
+
+    def remove_pedestrian(self, pedestrian):
+        if pedestrian in self.pedestrians:
+            self.pedestrians.remove(pedestrian)
+
 
 class Intersection:
     """Класс перекрестка"""
@@ -83,6 +118,7 @@ class Intersection:
         self.name = name
         self.lanes = []  # все полосы перекрестка
         self.traffic_lights = []  # все светофоры
+        self.crosswalks = []  # пешеходные переходы
         self.simulation_time = 0
         self.is_running = False
 
@@ -91,6 +127,9 @@ class Intersection:
 
     def add_traffic_light(self, traffic_light):
         self.traffic_lights.append(traffic_light)
+        
+    def add_crosswalk(self, crosswalk):
+        self.crosswalks.append(crosswalk)
 
     def start_simulation(self):
         self.is_running = True
@@ -110,3 +149,8 @@ class Intersection:
             for lane in self.lanes:
                 for vehicle in lane.vehicles:
                     vehicle.move()
+                    
+            # Обновление всех пешеходов на переходах
+            for crosswalk in self.crosswalks:
+                for pedestrian in crosswalk.pedestrians:
+                    pedestrian.move()
