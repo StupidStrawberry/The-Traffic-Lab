@@ -6,10 +6,44 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QGroupBox, QTextEdit, QLabel,
     QTableWidget, QTableWidgetItem, QPushButton, QHeaderView,
     QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsTextItem,
-    QSpinBox, QDoubleSpinBox
+    QSpinBox, QDoubleSpinBox, QCheckBox
 )
 from PyQt6.QtCore import Qt, QRectF, QTimer
 from PyQt6.QtGui import QPainter, QBrush, QColor, QPen
+
+
+class TrafficLight:
+    """Класс для управления светофором"""
+
+    def __init__(self):
+        self.vehicle_green = True  # Зеленый для транспорта
+        self.pedestrian_green = False  # Зеленый для пешеходов
+        self.vehicle_yellow = False  # Желтый для транспорта
+        self.timer = 0
+        self.cycle_time = 100  # Время цикла в условных единицах
+        self.green_time = 60  # Время зеленого для транспорта
+        self.yellow_time = 10  # Время желтого для транспорта
+        self.pedestrian_time = 30  # Время зеленого для пешеходов
+
+    def update(self):
+        """Обновляет состояние светофора"""
+        self.timer += 1
+
+        if self.timer >= self.cycle_time:
+            self.timer = 0
+
+        if self.timer < self.green_time:
+            self.vehicle_green = True
+            self.vehicle_yellow = False
+            self.pedestrian_green = False
+        elif self.timer < self.green_time + self.yellow_time:
+            self.vehicle_green = False
+            self.vehicle_yellow = True
+            self.pedestrian_green = False
+        else:
+            self.vehicle_green = False
+            self.vehicle_yellow = False
+            self.pedestrian_green = True
 
 
 class VehicleItem(QGraphicsRectItem):
@@ -34,8 +68,8 @@ class VehicleItem(QGraphicsRectItem):
 
         self.setPos(x, y)
 
-    def move(self, vehicles, crosswalk_items):
-        """Двигает транспортное средство по горизонтали с учетом других транспортных средств и пешеходов"""
+    def move(self, vehicles, crosswalk_items, traffic_light):
+        """Двигает транспортное средство по горизонтали с учетом других транспортных средств, пешеходов и светофора"""
         if self.waiting:
             self.wait_time -= 1
             if self.wait_time <= 0:
@@ -59,15 +93,21 @@ class VehicleItem(QGraphicsRectItem):
                     collision = True
                     break
 
-        # Проверяем наличие пешеходов на переходе
+        # Проверяем наличие пешеходов на переходе и состояние светофора
         crosswalk_x = 350  # Позиция пешеходного перехода
         crosswalk_width = 20  # Ширина перехода
-        
-        # Если транспортное средство приближается к переходу и на нем есть пешеходы
-        if (new_x < crosswalk_x + crosswalk_width and 
-            new_x + 40 > crosswalk_x and
-            any(not p.crossed for p in crosswalk_items)):
-            collision = True
+
+        # Если транспортное средство приближается к переходу
+        approaching_crosswalk = (new_x < crosswalk_x + crosswalk_width and new_x + 40 > crosswalk_x)
+
+        # Останавливаемся на красный свет или если есть пешеходы на переходе
+        if approaching_crosswalk:
+            if not traffic_light.vehicle_green:
+                # Красный или желтый для транспорта
+                collision = True
+            elif any(not p.crossed for p in crosswalk_items):
+                # Есть пешеходы на переходе
+                collision = True
 
         # Если столкновения нет, двигаем транспортное средство
         if not collision:
@@ -85,7 +125,7 @@ class VehicleItem(QGraphicsRectItem):
 
 class PedestrianItem(QGraphicsRectItem):
     """Графическое представление пешехода"""
-    
+
     def __init__(self, pedestrian, x, y):
         super().__init__(QRectF(0, 0, 10, 20))
         self.pedestrian = pedestrian
@@ -93,33 +133,80 @@ class PedestrianItem(QGraphicsRectItem):
         self.waiting = False
         self.crossing = False
         self.crossed = False
-        
+
         self.setBrush(QBrush(QColor(50, 205, 50)))  # Зеленый цвет для пешеходов
         self.setPen(QPen(Qt.GlobalColor.black, 1))
-        
+
         self.setPos(x, y)
-        
-    def move(self, vehicles):
-        """Двигает пешехода через дорогу"""
+
+    def move(self, vehicles, traffic_light):
+        """Двигает пешехода через дорогу с учетом светофора"""
         if self.waiting:
             return False
-            
+
         if not self.crossing and not self.crossed:
-            # Начинаем переход
-            self.crossing = True
-            
+            # Начинаем переход только на зеленый свет для пешеходов
+            if traffic_light.pedestrian_green:
+                self.crossing = True
+            else:
+                return False
+
         if self.crossing and not self.crossed:
             # Двигаем пешехода вверх
             new_y = self.y() - self.speed
             self.setY(new_y)
-            
+
             # Проверяем, перешел ли пешеход дорогу
             if new_y < 50:  # Достиг другой стороны
                 self.crossed = True
                 self.crossing = False
                 return True  # Помечаем для удаления
-                
+
         return False
+
+
+class TrafficLightItem(QGraphicsRectItem):
+    """Графическое представление светофора"""
+
+    def __init__(self, x, y):
+        super().__init__(QRectF(0, 0, 20, 60))
+        self.setPos(x, y)
+        self.setPen(QPen(Qt.GlobalColor.black, 2))
+
+        # Создаем огни светофора
+        self.vehicle_red = QGraphicsRectItem(5, 5, 10, 10, self)
+        self.vehicle_yellow = QGraphicsRectItem(5, 25, 10, 10, self)
+        self.vehicle_green = QGraphicsRectItem(5, 45, 10, 10, self)
+
+        self.pedestrian_red = QGraphicsRectItem(25, 5, 10, 10, self)
+        self.pedestrian_green = QGraphicsRectItem(25, 25, 10, 10, self)
+
+        # Изначально выключаем все огни
+        self.set_vehicle_light('red')
+        self.set_pedestrian_light('red')
+
+    def set_vehicle_light(self, color):
+        """Устанавливает цвет для транспортного светофора"""
+        self.vehicle_red.setBrush(QBrush(QColor(100, 0, 0)))  # Темно-красный
+        self.vehicle_yellow.setBrush(QBrush(QColor(100, 100, 0)))  # Темно-желтый
+        self.vehicle_green.setBrush(QBrush(QColor(0, 100, 0)))  # Темно-зеленый
+
+        if color == 'red':
+            self.vehicle_red.setBrush(QBrush(QColor(255, 0, 0)))  # Ярко-красный
+        elif color == 'yellow':
+            self.vehicle_yellow.setBrush(QBrush(QColor(255, 255, 0)))  # Ярко-желтый
+        elif color == 'green':
+            self.vehicle_green.setBrush(QBrush(QColor(0, 255, 0)))  # Ярко-зеленый
+
+    def set_pedestrian_light(self, color):
+        """Устанавливает цвет для пешеходного светофора"""
+        self.pedestrian_red.setBrush(QBrush(QColor(100, 0, 0)))  # Темно-красный
+        self.pedestrian_green.setBrush(QBrush(QColor(0, 100, 0)))  # Темно-зеленый
+
+        if color == 'red':
+            self.pedestrian_red.setBrush(QBrush(QColor(255, 0, 0)))  # Ярко-красный
+        elif color == 'green':
+            self.pedestrian_green.setBrush(QBrush(QColor(0, 255, 0)))  # Ярко-зеленый
 
 
 class SimulationWidget(QGroupBox):
@@ -132,30 +219,38 @@ class SimulationWidget(QGroupBox):
         self.pedestrian_items = []  # Список для хранения графических представлений пешеходов
         self.pedestrians = []  # Список для хранения объектов пешеходов
         self.crosswalk = None  # Пешеходный переход
+        self.traffic_light = TrafficLight()  # Светофор
         self.timer = QTimer()  # Таймер для анимации
         self.vehicle_generator_timer = QTimer()  # Таймер для генерации машин
         self.pedestrian_generator_timer = QTimer()  # Таймер для генерации пешеходов
+        self.traffic_light_timer = QTimer()  # Таймер для переключения светофора
+        self.traffic_light_item = None  # Графическое представление светофора
         self.setup_ui()
 
+    # В методе setup_ui класса SimulationWidget добавьте инициализацию traffic_light_label:
     def setup_ui(self):
         layout = QVBoxLayout()
 
         # Заголовок или информация о симуляции
-        self.info_label = QLabel("Транспортные средства движутся по одной горизонтальной полосе и исчезают в конце. Пешеходы пересекают дорогу.")
+        self.info_label = QLabel(
+            "Транспортные средства движутся по одной горизонтальной полосе и исчезают в конце. Пешеходы пересекают дорогу.")
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Создаем графическую сцену и представление для отображения объектов
         self.scene = QGraphicsScene()
-        self.scene.setSceneRect(0, 0, 800, 200)  # Уменьшаем высоту сцены для одной полосы
+        self.scene.setSceneRect(0, 0, 800, 200)
 
         # Добавляем разметку одной горизонтальной полосы
         self.add_lane_markings()
-        
+
         # Добавляем пешеходный переход
         self.add_crosswalk()
 
+        # Добавляем светофор
+        self.add_traffic_light()
+
         self.graphics_view = QGraphicsView(self.scene)
-        self.graphics_view.setRenderHint(QPainter.RenderHint.Antialiasing)  # Сглаживание
+        self.graphics_view.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Устанавливаем минимальный размер для области просмотра
         self.graphics_view.setMinimumSize(400, 200)
@@ -174,22 +269,23 @@ class SimulationWidget(QGroupBox):
         control_layout.addWidget(self.stop_button)
         control_layout.addWidget(self.clear_button)
 
-        # Статистика
+        # Статистика - ИНИЦИАЛИЗИРУЕМ traffic_light_label ПЕРЕД ИСПОЛЬЗОВАНИЕМ
         stats_layout = QHBoxLayout()
         self.vehicles_passed_label = QLabel("Проехало машин: 0")
         self.vehicles_current_label = QLabel("Текущее количество: 0")
         self.pedestrians_passed_label = QLabel("Перешло пешеходов: 0")
+        self.traffic_light_label = QLabel("Светофор: Зеленый для транспорта")  # ДОБАВЛЕНО
 
         stats_layout.addWidget(self.vehicles_passed_label)
         stats_layout.addWidget(self.vehicles_current_label)
         stats_layout.addWidget(self.pedestrians_passed_label)
+        stats_layout.addWidget(self.traffic_light_label)  # ДОБАВЛЕНО
 
         layout.addWidget(self.info_label)
         layout.addWidget(self.graphics_view)
         layout.addLayout(control_layout)
         layout.addLayout(stats_layout)
         self.setLayout(layout)
-
         # Счетчики для ID
         self.vehicle_count = 0
         self.pedestrian_count = 0
@@ -198,10 +294,13 @@ class SimulationWidget(QGroupBox):
 
         # Настраиваем таймер для обновления анимации
         self.timer.timeout.connect(self.update_movement)
-        
+
         # Настраиваем таймеры для генерации
         self.vehicle_generator_timer.timeout.connect(self.generate_vehicle)
         self.pedestrian_generator_timer.timeout.connect(self.generate_pedestrian)
+
+        # Настраиваем таймер для светофора
+        self.traffic_light_timer.timeout.connect(self.update_traffic_light)
 
     def add_lane_markings(self):
         """Добавляет разметку одной горизонтальной полосы на сцену"""
@@ -224,16 +323,49 @@ class SimulationWidget(QGroupBox):
         crosswalk_x = 350
         crosswalk_width = 20
         crosswalk_y = 85
-        
+
         # Создаем объект пешеходного перехода
         self.crosswalk = Crosswalk("CW1", (crosswalk_x, crosswalk_y), crosswalk_width)
-        
+
         # Добавляем зебру
         for i in range(6):
             stripe = QGraphicsRectItem(crosswalk_x, crosswalk_y - 10 + i * 10, 30, 3)
             stripe.setBrush(QBrush(QColor(255, 255, 255)))
             stripe.setPen(QPen(Qt.GlobalColor.white, 1))
             self.scene.addItem(stripe)
+
+    def add_traffic_light(self):
+        """Добавляет светофор на сцену"""
+        # Светофор для транспорта располагаем перед переходом
+        self.traffic_light_item = TrafficLightItem(320, 40)
+        self.scene.addItem(self.traffic_light_item)
+        self.update_traffic_light_display()
+
+    def update_traffic_light_display(self):
+        """Обновляет отображение светофора"""
+        if not hasattr(self, 'traffic_light_label') or self.traffic_light_label is None:
+            return
+
+        if not hasattr(self, 'traffic_light_item') or self.traffic_light_item is None:
+            return
+
+        if self.traffic_light.vehicle_green:
+            self.traffic_light_item.set_vehicle_light('green')
+            self.traffic_light_item.set_pedestrian_light('red')
+            self.traffic_light_label.setText("Светофор: Зеленый для транспорта")
+        elif self.traffic_light.vehicle_yellow:
+            self.traffic_light_item.set_vehicle_light('yellow')
+            self.traffic_light_item.set_pedestrian_light('red')
+            self.traffic_light_label.setText("Светофор: Желтый для транспорта")
+        else:
+            self.traffic_light_item.set_vehicle_light('red')
+            self.traffic_light_item.set_pedestrian_light('green')
+            self.traffic_light_label.setText("Светофор: Зеленый для пешеходов")
+
+    def update_traffic_light(self):
+        """Обновляет состояние светофора"""
+        self.traffic_light.update()
+        self.update_traffic_light_display()
 
     def add_vehicle(self, vehicle_type='car'):
         """Добавляет транспортное средство на сцену"""
@@ -282,7 +414,7 @@ class SimulationWidget(QGroupBox):
         # Сохраняем объекты
         self.pedestrians.append(pedestrian)
         self.pedestrian_items.append(pedestrian_item)
-        
+
         # Добавляем пешехода на переход
         if self.crosswalk:
             self.crosswalk.add_pedestrian(pedestrian)
@@ -311,24 +443,31 @@ class SimulationWidget(QGroupBox):
         """Запускает движение транспортных средств"""
         if not self.timer.isActive():
             self.timer.start(30)  # Обновление каждые 30 мс
-            
+
         # Запускаем генераторы, если они не активны
         if not self.vehicle_generator_timer.isActive():
             self.vehicle_generator_timer.start(5000)  # Генерация машин каждые 5 секунды
-            
+
         if not self.pedestrian_generator_timer.isActive():
             self.pedestrian_generator_timer.start(5000)  # Генерация пешеходов каждые 5 секунд
+
+        # Запускаем таймер светофора
+        if not self.traffic_light_timer.isActive():
+            self.traffic_light_timer.start(500)  # Обновление светофора каждые 500 мс
 
     def stop_movement(self):
         """Останавливает движение транспортных средств"""
         if self.timer.isActive():
             self.timer.stop()
-            
+
         if self.vehicle_generator_timer.isActive():
             self.vehicle_generator_timer.stop()
-            
+
         if self.pedestrian_generator_timer.isActive():
             self.pedestrian_generator_timer.stop()
+
+        if self.traffic_light_timer.isActive():
+            self.traffic_light_timer.stop()
 
     def generate_vehicle(self):
         """Генерирует случайное транспортное средство"""
@@ -348,13 +487,13 @@ class SimulationWidget(QGroupBox):
 
         # Обновляем транспортные средства
         for i, vehicle_item in enumerate(self.vehicle_items):
-            should_remove = vehicle_item.move(self.vehicle_items, self.pedestrian_items)
+            should_remove = vehicle_item.move(self.vehicle_items, self.pedestrian_items, self.traffic_light)
             if should_remove:
                 vehicles_to_remove.append(i)
 
         # Обновляем пешеходов
         for i, pedestrian_item in enumerate(self.pedestrian_items):
-            should_remove = pedestrian_item.move(self.vehicle_items)
+            should_remove = pedestrian_item.move(self.vehicle_items, self.traffic_light)
             if should_remove:
                 pedestrians_to_remove.append(i)
 
@@ -393,7 +532,23 @@ class SimulationWidget(QGroupBox):
     def clear_simulation(self):
         """Очищает сцену от всех объектов"""
         self.stop_movement()
-        self.scene.clear()
+
+        # Выборочно удаляем элементы сцены вместо полной очистки
+        for item in self.vehicle_items[:]:
+            self.scene.removeItem(item)
+        for item in self.pedestrian_items[:]:
+            self.scene.removeItem(item)
+
+        if hasattr(self, 'traffic_light_item') and self.traffic_light_item:
+            self.scene.removeItem(self.traffic_light_item)
+
+        # Удаляем элементы разметки (можно добавить, если храните ссылки на них)
+        # Восстанавливаем разметку
+        self.add_lane_markings()
+        self.add_crosswalk()
+        self.add_traffic_light()
+
+        # Очищаем списки
         self.vehicle_count = 0
         self.pedestrian_count = 0
         self.vehicles = []
@@ -402,9 +557,7 @@ class SimulationWidget(QGroupBox):
         self.pedestrian_items = []
         self.vehicles_passed = 0
         self.pedestrians_passed = 0
-        # Восстанавливаем разметку полосы и переход
-        self.add_lane_markings()
-        self.add_crosswalk()
+
         # Обновляем статистику
         self.update_stats()
 
@@ -421,7 +574,7 @@ class SettingsWidget(QGroupBox):
         layout = QVBoxLayout()
 
         # Создаем таблицу для настроек
-        self.settings_table = QTableWidget(8, 2)  # 8 строк, 2 столбца
+        self.settings_table = QTableWidget(10, 2)  # 10 строк, 2 столбца
         self.settings_table.setHorizontalHeaderLabels(["Параметр", "Значение"])
 
         # Заполняем таблицу демонстрационными данными
@@ -433,7 +586,9 @@ class SettingsWidget(QGroupBox):
             ("Интервал генерации машин (мс)", "2000"),
             ("Интервал генерации пешеходов (мс)", "5000"),
             ("Включить генерацию машин", "Да"),
-            ("Включить генерацию пешеходов", "Да")
+            ("Включить генерацию пешеходов", "Да"),
+            ("Время зеленого для транспорта", "60"),
+            ("Время зеленого для пешеходов", "30")
         ]
 
         for row, (param, value) in enumerate(settings_data):
@@ -483,6 +638,18 @@ class SettingsWidget(QGroupBox):
                 button.setChecked(True)
                 button.clicked.connect(self.toggle_pedestrian_generation)
                 self.settings_table.setCellWidget(row, 1, button)
+            elif param == "Время зеленого для транспорта":
+                spinbox = QSpinBox()
+                spinbox.setRange(10, 200)
+                spinbox.setValue(60)
+                spinbox.valueChanged.connect(self.update_vehicle_green_time)
+                self.settings_table.setCellWidget(row, 1, spinbox)
+            elif param == "Время зеленого для пешеходов":
+                spinbox = QSpinBox()
+                spinbox.setRange(10, 200)
+                spinbox.setValue(30)
+                spinbox.valueChanged.connect(self.update_pedestrian_green_time)
+                self.settings_table.setCellWidget(row, 1, spinbox)
             else:
                 self.settings_table.setItem(row, 1, QTableWidgetItem(value))
 
@@ -507,22 +674,22 @@ class SettingsWidget(QGroupBox):
         """Метод для добавления автобуса в симуляцию"""
         if self.simulation_widget:
             self.simulation_widget.add_bus()
-            
+
     def add_pedestrian_to_simulation(self):
         """Метод для добавления пешехода в симуляцию"""
         if self.simulation_widget:
             self.simulation_widget.add_pedestrian()
-            
+
     def update_vehicle_interval(self, value):
         """Обновляет интервал генерации машин"""
         if self.simulation_widget:
             self.simulation_widget.vehicle_generator_timer.setInterval(value)
-            
+
     def update_pedestrian_interval(self, value):
         """Обновляет интервал генерации пешеходов"""
         if self.simulation_widget:
             self.simulation_widget.pedestrian_generator_timer.setInterval(value)
-            
+
     def toggle_vehicle_generation(self):
         """Включает/выключает генерацию машин"""
         button = self.sender()
@@ -533,7 +700,7 @@ class SettingsWidget(QGroupBox):
             else:
                 self.simulation_widget.vehicle_generator_timer.stop()
                 button.setText("Включить")
-                
+
     def toggle_pedestrian_generation(self):
         """Включает/выключает генерацию пешеходов"""
         button = self.sender()
@@ -544,6 +711,18 @@ class SettingsWidget(QGroupBox):
             else:
                 self.simulation_widget.pedestrian_generator_timer.stop()
                 button.setText("Включить")
+
+    def update_vehicle_green_time(self, value):
+        """Обновляет время зеленого для транспорта"""
+        if self.simulation_widget:
+            self.simulation_widget.traffic_light.green_time = value
+            self.simulation_widget.traffic_light.cycle_time = value + self.simulation_widget.traffic_light.yellow_time + self.simulation_widget.traffic_light.pedestrian_time
+
+    def update_pedestrian_green_time(self, value):
+        """Обновляет время зеленого для пешеходов"""
+        if self.simulation_widget:
+            self.simulation_widget.traffic_light.pedestrian_time = value
+            self.simulation_widget.traffic_light.cycle_time = self.simulation_widget.traffic_light.green_time + self.simulation_widget.traffic_light.yellow_time + value
 
 
 class AnalysisWidget(QGroupBox):
@@ -598,7 +777,8 @@ class AnalysisWidget(QGroupBox):
             status = "Высокая нагрузка"
 
         self.analysis_table.setItem(3, 1, QTableWidgetItem(congestion))
-        self.analysis_table.setItem(4, 1, QTableWidgetItem(f"{status} (Машин: {vehicles_passed}, Пешеходов: {pedestrians_passed})"))
+        self.analysis_table.setItem(4, 1, QTableWidgetItem(
+            f"{status} (Машин: {vehicles_passed}, Пешеходов: {pedestrians_passed})"))
 
     def clear_analysis(self):
         """Метод для очистки таблицы анализа"""
@@ -662,7 +842,8 @@ class MainWindow(QMainWindow):
         else:
             average_speed = 0
 
-        self.analysis_widget.update_analysis(vehicle_count, pedestrian_count, average_speed, vehicles_passed, pedestrians_passed)
+        self.analysis_widget.update_analysis(vehicle_count, pedestrian_count, average_speed, vehicles_passed,
+                                             pedestrians_passed)
 
 
 if __name__ == '__main__':
