@@ -75,6 +75,9 @@ class VehicleItem(QGraphicsRectItem):
             if self.wait_time <= 0:
                 self.waiting = False
             return
+        
+        crosswalk_x = 350
+        crosswalk_width = 20
 
         # Определяем следующую позицию
         new_x = self.x() + self.speed
@@ -93,20 +96,23 @@ class VehicleItem(QGraphicsRectItem):
                     collision = True
                     break
 
-        # Проверяем наличие пешеходов на переходе и состояние светофора
-        crosswalk_x = 350  # Позиция пешеходного перехода
-        crosswalk_width = 20  # Ширина перехода
+        current_on_crosswalk = (self.x() < crosswalk_x + crosswalk_width and 
+                           self.x() + 40 > crosswalk_x)
 
-        # Если транспортное средство приближается к переходу
-        approaching_crosswalk = (new_x < crosswalk_x + crosswalk_width and new_x + 40 > crosswalk_x)
+        will_be_on_crosswalk = (new_x < crosswalk_x + crosswalk_width and 
+                           new_x + 40 > crosswalk_x)
+        
+        has_pedestrians = any(p.crossing for p in crosswalk_items)
 
-        # Останавливаемся на красный свет или если есть пешеходы на переходе
-        if approaching_crosswalk:
-            if not traffic_light.vehicle_green:
-                # Красный или желтый для транспорта
+        stop_position = crosswalk_x - 40
+        if will_be_on_crosswalk:
+            if current_on_crosswalk:
+                pass
+            elif traffic_light.vehicle_green and has_pedestrians:
                 collision = True
-            elif any(not p.crossed for p in crosswalk_items):
-                # Есть пешеходы на переходе
+            elif traffic_light.vehicle_green:
+                pass
+            elif new_x > stop_position:
                 collision = True
 
         # Если столкновения нет, двигаем транспортное средство
@@ -141,8 +147,24 @@ class PedestrianItem(QGraphicsRectItem):
 
     def move(self, vehicles, traffic_light):
         """Двигает пешехода через дорогу с учетом светофора"""
-        if self.waiting:
+
+        crosswalk_x = 350
+        crosswalk_width = 20
+        vehicles_on_crosswalk = False
+        
+        for vehicle in vehicles:
+            vehicle_x = vehicle.x()
+            # Проверяем, пересекается ли позиция машины с пешеходным переходом
+            if (vehicle_x < crosswalk_x + crosswalk_width and 
+                vehicle_x > crosswalk_x):
+                self.waiting = True
+                vehicles_on_crosswalk = True
+
+        if vehicles_on_crosswalk and not self.crossed:
+            self.waiting = True
             return False
+        
+        self.waiting = False
 
         if not self.crossing and not self.crossed:
             # Начинаем переход только на зеленый свет для пешеходов
@@ -337,7 +359,7 @@ class SimulationWidget(QGroupBox):
     def add_traffic_light(self):
         """Добавляет светофор на сцену"""
         # Светофор для транспорта располагаем перед переходом
-        self.traffic_light_item = TrafficLightItem(320, 40)
+        self.traffic_light_item = TrafficLightItem(320, 20)
         self.scene.addItem(self.traffic_light_item)
         self.update_traffic_light_display()
 
@@ -403,7 +425,7 @@ class SimulationWidget(QGroupBox):
 
         # Размещаем пешехода в начале перехода (снизу)
         x = random.randint(350, 370)  # Случайная позиция на переходе
-        y = 120  # Начинаем снизу дороги
+        y = 130  # Начинаем снизу дороги
 
         # Создаем графическое представление
         pedestrian_item = PedestrianItem(pedestrian, x, y)
