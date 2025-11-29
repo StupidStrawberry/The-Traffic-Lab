@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from PyQt6.QtGui import QColor
 
 
@@ -28,26 +28,27 @@ class SimulationConfig:
     SCENE_WIDTH: int = 800
     SCENE_HEIGHT: int = 600
     HORIZONTAL_LANE_Y: int = 300
-    VERTICAL_LANE_X: int = 400
+    VERTICAL_LANE_X: int = 422
     CROSSWALK_WIDTH: int = 20
+    CROSSWALK_LENGTH: int = 60
 
     # Позиции переходов
-    HORIZONTAL_CROSSWALK_X: int = 350
-    VERTICAL_CROSSWALK_Y: int = 250
+    HORIZONTAL_CROSSWALK_X: int = 340
+    VERTICAL_CROSSWALK_Y: int = 195
 
     # Размеры объектов
     VEHICLE_WIDTH: int = 40
     VEHICLE_HEIGHT: int = 20
     PEDESTRIAN_WIDTH: int = 10
-    PEDESTRIAN_HEIGHT: int = 20
+    PEDESTRIAN_HEIGHT: int = 10
     MIN_DISTANCE_BETWEEN_VEHICLES: int = 60
 
     # Цвета
-    VEHICLE_COLORS = {
+    VEHICLE_COLORS: dict = field(default_factory=lambda: {
         'car': QColor(65, 105, 225),
         'truck': QColor(139, 0, 0),
         'bus': QColor(255, 140, 0)
-    }
-    PEDESTRIAN_COLOR: QColor = QColor(50, 205, 50)
-    LANE_COLOR: QColor = QColor(255, 255, 255)
-    BACKGROUND_COLOR: QColor = QColor(240, 240, 240)  # Добавляем цвет фона
+    })
+    PEDESTRIAN_COLOR: QColor = field(default_factory=lambda: QColor(50, 205, 50))
+    LANE_COLOR: QColor = field(default_factory=lambda: QColor(255, 255, 255))
+    BACKGROUND_COLOR: QColor = field(default_factory=lambda: QColor(240, 240, 240))

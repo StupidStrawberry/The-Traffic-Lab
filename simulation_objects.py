@@ -65,7 +65,7 @@ class VehicleItem(QGraphicsRectItem):
             if other != self:
                 if (other.vehicle.direction == self.vehicle.direction and
                         abs(other.x() - new_x) < self.config.MIN_DISTANCE_BETWEEN_VEHICLES and
-                        abs(other.y() - new_y) < 10):
+                        abs(other.y() - new_y) < self.config.MIN_DISTANCE_BETWEEN_VEHICLES):
                     return True
         return False
 
@@ -122,7 +122,15 @@ class VehicleItem(QGraphicsRectItem):
 
 class PedestrianItem(QGraphicsRectItem):
     def __init__(self, pedestrian: Pedestrian, x: float, y: float, config):
-        super().__init__(QRectF(0, 0, config.PEDESTRIAN_WIDTH, config.PEDESTRIAN_HEIGHT))
+        # Для вертикальных пешеходов меняем ширину и высоту местами
+        if pedestrian.direction == 'vertical':
+            width = config.PEDESTRIAN_HEIGHT
+            height = config.PEDESTRIAN_WIDTH
+        else:
+            width = config.PEDESTRIAN_WIDTH
+            height = config.PEDESTRIAN_HEIGHT
+            
+        super().__init__(QRectF(0, 0, width, height))
         self.pedestrian = pedestrian
         self.config = config
         self.speed = random.uniform(0.3, 0.8)
@@ -133,6 +141,10 @@ class PedestrianItem(QGraphicsRectItem):
         self.setBrush(QBrush(config.PEDESTRIAN_COLOR))
         self.setPen(QPen(Qt.GlobalColor.black, 1))
         self.setPos(x, y)
+        
+        # Поворачиваем вертикальных пешеходов на 90 градусов
+        if pedestrian.direction == 'vertical':
+            self.setRotation(90)
 
     def move(self, vehicles: List[VehicleItem], traffic_light: TrafficLightController) -> bool:
         if self._should_wait_for_vehicles(vehicles) and not self.crossed:
@@ -146,16 +158,19 @@ class PedestrianItem(QGraphicsRectItem):
 
         if self.crossing and not self.crossed:
             if self.pedestrian.direction == 'vertical':
+                # Вертикальные пешеходы движутся вверх
                 new_y = self.y() - self.speed
                 self.setY(new_y)
-                if new_y < 50:
+                if new_y < 220:
                     self.crossed = True
                     self.crossing = False
                     return True
             else:
+                # Горизонтальные пешеходы движутся влево
+                print(self.x())
                 new_x = self.x() - self.speed
                 self.setX(new_x)
-                if new_x < 50:
+                if new_x < 360:
                     self.crossed = True
                     self.crossing = False
                     return True
