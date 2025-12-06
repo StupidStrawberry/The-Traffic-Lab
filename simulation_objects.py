@@ -76,13 +76,16 @@ class VehicleItem(QGraphicsRectItem):
 
         current_on_crosswalk = (self.x() < crosswalk_end and
                                 self.x() + self.config.VEHICLE_WIDTH > crosswalk_start)
+        
         will_be_on_crosswalk = (new_x < crosswalk_end and
-                                new_x + self.config.VEHICLE_WIDTH > crosswalk_start)
+                                new_x + self.config.VEHICLE_WIDTH + 30 > crosswalk_start)
 
         has_pedestrians = any(p.crossing and p.pedestrian.direction == 'vertical'
                               for p in pedestrians)
-        stop_position = crosswalk_start - self.config.VEHICLE_WIDTH
+        
+        stop_position = crosswalk_start - self.config.VEHICLE_WIDTH - 50
 
+        print (new_x, stop_position)
         if will_be_on_crosswalk:
             if current_on_crosswalk:
                 return False
@@ -91,6 +94,8 @@ class VehicleItem(QGraphicsRectItem):
             elif traffic_light.vehicle_green:
                 return False
             elif new_x > stop_position:
+                return True
+            elif not traffic_light.vehicle_green or traffic_light.vehicle_yellow:
                 return True
         return False
 
@@ -102,20 +107,25 @@ class VehicleItem(QGraphicsRectItem):
         current_on_crosswalk = (self.y() < crosswalk_end and
                                 self.y() + self.config.VEHICLE_HEIGHT > crosswalk_start)
         will_be_on_crosswalk = (new_y < crosswalk_end and
-                                new_y + self.config.VEHICLE_HEIGHT > crosswalk_start)
+                                new_y + self.config.VEHICLE_HEIGHT + 40 > crosswalk_start)
 
         has_pedestrians = any(p.crossing and p.pedestrian.direction == 'horizontal'
                               for p in pedestrians)
-        stop_position = crosswalk_start - self.config.VEHICLE_HEIGHT
+        
+        print(has_pedestrians)
+
+        stop_position = crosswalk_start - self.config.VEHICLE_HEIGHT - 30
 
         if will_be_on_crosswalk:
             if current_on_crosswalk:
                 return False
-            elif traffic_light.vehicle_green and has_pedestrians:
+            elif not traffic_light.vehicle_green and has_pedestrians:
                 return True
-            elif traffic_light.vehicle_green:
+            elif not traffic_light.vehicle_green:
                 return False
             elif new_y > stop_position:
+                return True
+            elif traffic_light.vehicle_green or traffic_light.vehicle_yellow:
                 return True
         return False
 
@@ -137,6 +147,7 @@ class PedestrianItem(QGraphicsRectItem):
         self.waiting = False
         self.crossing = False
         self.crossed = False
+        self.direction = pedestrian.direction
 
         self.setBrush(QBrush(config.PEDESTRIAN_COLOR))
         self.setPen(QPen(Qt.GlobalColor.black, 1))
@@ -153,8 +164,11 @@ class PedestrianItem(QGraphicsRectItem):
 
         self.waiting = False
 
-        if not self.crossing and not self.crossed and traffic_light.pedestrian_green:
-            self.crossing = True
+        if not self.crossing and not self.crossed:
+            if traffic_light.pedestrian_green and self.direction == 'vertical':
+                self.crossing = True
+            elif not traffic_light.pedestrian_green and self.direction == 'horizontal':
+                self.crossing = True
 
         if self.crossing and not self.crossed:
             if self.pedestrian.direction == 'vertical':

@@ -27,7 +27,7 @@ class SimulationConfig:
     # Геометрия перекрестка
     SCENE_WIDTH: int = 800
     SCENE_HEIGHT: int = 600
-    HORIZONTAL_LANE_Y: int = 300
+    HORIZONTAL_LANE_Y: int = 310
     VERTICAL_LANE_X: int = 422
     CROSSWALK_WIDTH: int = 20
     CROSSWALK_LENGTH: int = 60
@@ -41,7 +41,7 @@ class SimulationConfig:
     VEHICLE_HEIGHT: int = 20
     PEDESTRIAN_WIDTH: int = 10
     PEDESTRIAN_HEIGHT: int = 10
-    MIN_DISTANCE_BETWEEN_VEHICLES: int = 60
+    MIN_DISTANCE_BETWEEN_VEHICLES: int = 45
 
     # Цвета
     VEHICLE_COLORS: dict = field(default_factory=lambda: {
