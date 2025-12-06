@@ -1,31 +1,96 @@
 import random
+import os
 from typing import List
-from PyQt6.QtWidgets import QGraphicsRectItem
+from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsPixmapItem
 from PyQt6.QtCore import QRectF
-from PyQt6.QtGui import QBrush, QColor, QPen
+from PyQt6.QtGui import QBrush, QColor, QPen, QPixmap, QPainter
 from PyQt6.QtCore import Qt
 
 from classes import Vehicle, Pedestrian
 from traffic_light import TrafficLightController
 
 
-class VehicleItem(QGraphicsRectItem):
+class VehicleItem(QGraphicsPixmapItem):
     def __init__(self, vehicle: Vehicle, x: float, y: float, config):
-        super().__init__(QRectF(0, 0, config.VEHICLE_WIDTH, config.VEHICLE_HEIGHT))
+        # Create pixmap with proper initialization
+        pixmap = self._create_vehicle_pixmap(vehicle, config)
+        
+        super().__init__(pixmap)
         self.vehicle = vehicle
         self.config = config
         self.speed = random.uniform(0.5, 2.0)
         self.waiting = False
         self.wait_time = 0
 
-        color = config.VEHICLE_COLORS.get(vehicle.type, config.VEHICLE_COLORS['car'])
-        self.setBrush(QBrush(color))
-        self.setPen(QPen(Qt.GlobalColor.black, 1))
+        # Set initial position
         self.setPos(x, y)
+
+        # Set offset to center the image
+        # self.setOffset(-config.VEHICLE_WIDTH / 2, -config.VEHICLE_HEIGHT / 2)
 
         # Поворачиваем вертикальные транспортные средства
         if vehicle.direction == 'vertical':
             self.setRotation(90)
+
+    def _create_vehicle_pixmap(self, vehicle: Vehicle, config):
+        """Create pixmap for vehicle, using image if available or creating a colored rectangle"""
+        # Try to load from file first
+        image_files = {
+            'car': 'car.png',
+            'truck': 'truck.png', 
+            'bus': 'bus.png'
+        }
+        
+        filename = image_files.get(vehicle.type, 'car.png')
+        
+        if os.path.exists(filename):
+            pixmap = QPixmap(filename)
+            if not pixmap.isNull():
+                # Scale to appropriate size
+                return pixmap.scaled(
+                    int(config.VEHICLE_WIDTH * 1.5),
+                    int(config.VEHICLE_HEIGHT * 1.5),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+        
+        # If image file not found or failed to load, create a colored rectangle
+        return self._create_colored_vehicle_pixmap(vehicle, config)
+
+    def _create_colored_vehicle_pixmap(self, vehicle: Vehicle, config):
+        """Create a colored rectangle as fallback when image is not available"""
+        pixmap = QPixmap(config.VEHICLE_WIDTH, config.VEHICLE_HEIGHT)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Get color from config
+        color = config.VEHICLE_COLORS.get(vehicle.type, config.VEHICLE_COLORS['car'])
+        
+        # Draw vehicle shape
+        painter.setBrush(QBrush(color))
+        painter.setPen(QPen(Qt.GlobalColor.black, 1))
+        
+        # Draw different shapes based on vehicle type
+        if vehicle.type == 'car':
+            # Draw car shape
+            painter.drawRoundedRect(2, 2, 
+                                   config.VEHICLE_WIDTH - 4, 
+                                   config.VEHICLE_HEIGHT - 4, 
+                                   3, 3)
+        elif vehicle.type == 'truck':
+            # Draw truck shape (longer rectangle)
+            painter.drawRect(0, 5, config.VEHICLE_WIDTH, config.VEHICLE_HEIGHT - 10)
+        elif vehicle.type == 'bus':
+            # Draw bus shape (square)
+            painter.drawRect(0, 0, config.VEHICLE_WIDTH, config.VEHICLE_HEIGHT)
+        else:
+            # Default rectangle
+            painter.drawRect(0, 0, config.VEHICLE_WIDTH, config.VEHICLE_HEIGHT)
+        
+        painter.end()
+        return pixmap
 
     def move(self, vehicles: List['VehicleItem'], pedestrians: List['PedestrianItem'],
              traffic_light: TrafficLightController) -> bool:
@@ -85,7 +150,6 @@ class VehicleItem(QGraphicsRectItem):
         
         stop_position = crosswalk_start - self.config.VEHICLE_WIDTH - 50
 
-        print (new_x, stop_position)
         if will_be_on_crosswalk:
             if current_on_crosswalk:
                 return False
@@ -111,8 +175,6 @@ class VehicleItem(QGraphicsRectItem):
 
         has_pedestrians = any(p.crossing and p.pedestrian.direction == 'horizontal'
                               for p in pedestrians)
-        
-        print(has_pedestrians)
 
         stop_position = crosswalk_start - self.config.VEHICLE_HEIGHT - 30
 
@@ -181,7 +243,6 @@ class PedestrianItem(QGraphicsRectItem):
                     return True
             else:
                 # Горизонтальные пешеходы движутся влево
-                print(self.x())
                 new_x = self.x() - self.speed
                 self.setX(new_x)
                 if new_x < 360:
