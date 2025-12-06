@@ -3,7 +3,7 @@ import os
 from typing import List
 from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsPixmapItem
 from PyQt6.QtCore import QRectF
-from PyQt6.QtGui import QBrush, QColor, QPen, QPixmap, QPainter
+from PyQt6.QtGui import QBrush, QColor, QPen, QPixmap, QPainter, QTransform
 from PyQt6.QtCore import Qt
 
 from classes import Vehicle, Pedestrian
@@ -26,7 +26,6 @@ class VehicleItem(QGraphicsPixmapItem):
         self.setPos(x, y)
 
         # Set offset to center the image
-        # self.setOffset(-config.VEHICLE_WIDTH / 2, -config.VEHICLE_HEIGHT / 2)
 
         # Поворачиваем вертикальные транспортные средства
         if vehicle.direction == 'vertical':
@@ -192,17 +191,12 @@ class VehicleItem(QGraphicsPixmapItem):
         return False
 
 
-class PedestrianItem(QGraphicsRectItem):
+class PedestrianItem(QGraphicsPixmapItem):  # Changed from QGraphicsRectItem to QGraphicsPixmapItem
     def __init__(self, pedestrian: Pedestrian, x: float, y: float, config):
-        # Для вертикальных пешеходов меняем ширину и высоту местами
-        if pedestrian.direction == 'vertical':
-            width = config.PEDESTRIAN_HEIGHT
-            height = config.PEDESTRIAN_WIDTH
-        else:
-            width = config.PEDESTRIAN_WIDTH
-            height = config.PEDESTRIAN_HEIGHT
-            
-        super().__init__(QRectF(0, 0, width, height))
+        # Create pixmap for pedestrian
+        pixmap = self._create_pedestrian_pixmap(pedestrian, config)
+        
+        super().__init__(pixmap)
         self.pedestrian = pedestrian
         self.config = config
         self.speed = random.uniform(0.3, 0.8)
@@ -211,13 +205,77 @@ class PedestrianItem(QGraphicsRectItem):
         self.crossed = False
         self.direction = pedestrian.direction
 
-        self.setBrush(QBrush(config.PEDESTRIAN_COLOR))
-        self.setPen(QPen(Qt.GlobalColor.black, 1))
+        # Set initial position
         self.setPos(x, y)
-        
-        # Поворачиваем вертикальных пешеходов на 90 градусов
+
+        # Set offset to center the imag
+
+        # Apply rotation based on pedestrian direction
+        # IMPORTANT: The pedestrian.png should be facing RIGHT by default
         if pedestrian.direction == 'vertical':
-            self.setRotation(90)
+            # For vertical movement (up), we need to rotate -90 degrees (facing up)
+            self.setRotation(-90)
+        else:
+            self.setRotation(180)
+        # For horizontal movement (left), we keep 0 rotation (facing right) 
+        # since they will be moving left but facing right
+
+    def _create_pedestrian_pixmap(self, pedestrian: Pedestrian, config):
+        """Create pixmap for pedestrian, using image if available or creating a colored rectangle"""
+        # Try to load from file
+        filename = "pedestrian.png"
+        
+        if os.path.exists(filename):
+            pixmap = QPixmap(filename)
+            if not pixmap.isNull():
+                # Scale to appropriate size
+                # For pedestrians, we might want a different aspect ratio
+                scaled_width = int(config.PEDESTRIAN_WIDTH * 1.5)
+                scaled_height = int(config.PEDESTRIAN_HEIGHT * 1.5)
+                
+                return pixmap.scaled(
+                    scaled_width,
+                    scaled_height,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+        
+        # If image file not found, create a colored rectangle
+        return self._create_colored_pedestrian_pixmap(config)
+
+    def _create_colored_pedestrian_pixmap(self, config):
+        """Create a colored rectangle as fallback when pedestrian image is not available"""
+        pixmap = QPixmap(config.PEDESTRIAN_WIDTH, config.PEDESTRIAN_HEIGHT)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Draw pedestrian shape (a simple person shape)
+        color = self.config.PEDESTRIAN_COLOR
+        
+        # Draw head (circle)
+        painter.setBrush(QBrush(color))
+        painter.setPen(QPen(Qt.GlobalColor.black, 1))
+        painter.drawEllipse(config.PEDESTRIAN_WIDTH//2 - 3, 1, 6, 6)
+        
+        # Draw body (rectangle)
+        painter.drawRect(config.PEDESTRIAN_WIDTH//2 - 2, 7, 4, 8)
+        
+        # Draw legs
+        painter.drawLine(config.PEDESTRIAN_WIDTH//2, 15, 
+                        config.PEDESTRIAN_WIDTH//2 - 3, config.PEDESTRIAN_HEIGHT)
+        painter.drawLine(config.PEDESTRIAN_WIDTH//2, 15, 
+                        config.PEDESTRIAN_WIDTH//2 + 3, config.PEDESTRIAN_HEIGHT)
+        
+        # Draw arms
+        painter.drawLine(config.PEDESTRIAN_WIDTH//2, 9, 
+                        config.PEDESTRIAN_WIDTH//2 - 4, 12)
+        painter.drawLine(config.PEDESTRIAN_WIDTH//2, 9, 
+                        config.PEDESTRIAN_WIDTH//2 + 4, 12)
+        
+        painter.end()
+        return pixmap
 
     def move(self, vehicles: List[VehicleItem], traffic_light: TrafficLightController) -> bool:
         if self._should_wait_for_vehicles(vehicles) and not self.crossed:
