@@ -26,8 +26,7 @@ class SimulationWidget(QGroupBox):
         self.pedestrians = []
         self.pedestrian_items = []
         self.crosswalks = []  # Теперь список переходов
-        self.traffic_light_horizontal = None
-        self.traffic_light_vertical = None
+        self.traffic_lights = []  # List of all traffic lights
         self.background_pixmap = None
 
         self.setup_ui()
@@ -36,7 +35,7 @@ class SimulationWidget(QGroupBox):
 
     def load_background_image(self):
         try:
-            self.background_pixmap = QPixmap("perecrestok.pdf")
+            self.background_pixmap = QPixmap("Bg main.png")
             if not self.background_pixmap.isNull():
                 scaled_pixmap = self.background_pixmap.scaled(
                     self.config.SCENE_WIDTH, 
@@ -102,7 +101,7 @@ class SimulationWidget(QGroupBox):
         self.setLayout(layout)
 
         # ПЕРЕМЕЩАЕМ эти вызовы ПОСЛЕ создания всех элементов интерфейса
-        self.add_intersection_markings()
+        # self.add_intersection_markings()
         self.add_crosswalks()
         self.add_traffic_lights()
 
@@ -119,34 +118,34 @@ class SimulationWidget(QGroupBox):
         self.traffic_light_timer = QTimer()
         self.traffic_light_timer.timeout.connect(self.update_traffic_light)
 
-    def add_intersection_markings(self):
-        """Добавляет разметку перекрестка"""
-        # Горизонтальная полоса
-        #line_horizontal = QGraphicsRectItem(0, self.config.HORIZONTAL_LANE_Y, self.config.SCENE_WIDTH, 2)
-        #line_horizontal.setBrush(QBrush(self.config.LANE_COLOR))
-        #line_horizontal.setPen(QPen(Qt.GlobalColor.white, 2))
-        #self.scene.addItem(line_horizontal)
+    # def add_intersection_markings(self):
+    #     """Добавляет разметку перекрестка"""
+    #     # Горизонтальная полоса
+    #     line_horizontal = QGraphicsRectItem(0, self.config.HORIZONTAL_LANE_Y, self.config.SCENE_WIDTH, 2)
+    #     line_horizontal.setBrush(QBrush(self.config.LANE_COLOR))
+    #     line_horizontal.setPen(QPen(Qt.GlobalColor.white, 2))
+    #     self.scene.addItem(line_horizontal)
 
-        # Вертикальная полоса
-        #line_vertical = QGraphicsRectItem(self.config.VERTICAL_LANE_X, 0, 2, self.config.SCENE_HEIGHT)
-        #line_vertical.setBrush(QBrush(self.config.LANE_COLOR))
-        #line_vertical.setPen(QPen(Qt.GlobalColor.white, 2))
-        #self.scene.addItem(line_vertical)
+    #     # Вертикальная полоса
+    #     line_vertical = QGraphicsRectItem(self.config.VERTICAL_LANE_X, 0, 2, self.config.SCENE_WIDTH)
+    #     line_vertical.setBrush(QBrush(self.config.LANE_COLOR))
+    #     line_vertical.setPen(QPen(Qt.GlobalColor.white, 2))
+    #     self.scene.addItem(line_vertical)
 
-        # Добавляем пунктирные линии
-        #for x in range(0, self.config.SCENE_WIDTH, 20):
-        #    if abs(x - self.config.VERTICAL_LANE_X) > 30:  # Пропускаем зону перекрестка
-        #        dash = QGraphicsRectItem(x, self.config.HORIZONTAL_LANE_Y, 10, 2)
-        #        dash.setBrush(QBrush(self.config.LANE_COLOR))
-        #        dash.setPen(QPen(Qt.GlobalColor.white, 2))
-        #        self.scene.addItem(dash)
+    #     # Добавляем пунктирные линии
+    #     for x in range(0, self.config.SCENE_WIDTH, 20):
+    #        if abs(x - self.config.VERTICAL_LANE_X) > 30:  # Пропускаем зону перекрестка
+    #            dash = QGraphicsRectItem(x, self.config.HORIZONTAL_LANE_Y, 10, 2)
+    #            dash.setBrush(QBrush(self.config.LANE_COLOR))
+    #            dash.setPen(QPen(Qt.GlobalColor.white, 2))
+    #            self.scene.addItem(dash)
 
-        #for y in range(0, self.config.SCENE_HEIGHT, 20):
-        #    if abs(y - self.config.HORIZONTAL_LANE_Y) > 30:  # Пропускаем зону перекрестка
-        #        dash = QGraphicsRectItem(self.config.VERTICAL_LANE_X, y, 2, 10)
-        #        dash.setBrush(QBrush(self.config.LANE_COLOR))
-        #        dash.setPen(QPen(Qt.GlobalColor.white, 2))
-        #        self.scene.addItem(dash)
+    #     for y in range(0, self.config.SCENE_HEIGHT, 20):
+    #        if abs(y - self.config.HORIZONTAL_LANE_Y) > 30:  # Пропускаем зону перекрестка
+    #            dash = QGraphicsRectItem(self.config.VERTICAL_LANE_X, y, 2, 10)
+    #            dash.setBrush(QBrush(self.config.LANE_COLOR))
+    #            dash.setPen(QPen(Qt.GlobalColor.white, 2))
+    #            self.scene.addItem(dash)
 
     def add_crosswalks(self):
         """Добавляет пешеходные переходы на сцену"""
@@ -159,82 +158,136 @@ class SimulationWidget(QGroupBox):
         # Вертикальный переход (для пешеходов, идущих горизонтально)
         v_crosswalk = Crosswalk("V_CW",
                                 (self.config.VERTICAL_LANE_X - 15, self.config.VERTICAL_CROSSWALK_Y),
-                                self.config.CROSSWALK_WIDTH, 'horizontal')
+                                self.config.CROSSWALK_WIDTH + 30, 'horizontal')
         self.crosswalks.append(v_crosswalk)
 
         # Добавляем графическое отображение переходов
-        self.add_crosswalk_markings()
+        # self.add_crosswalk_markings()
 
-    def add_crosswalk_markings(self):
-        # """Добавляет графическое отображение пешеходных переходов"""
-        # # Горизонтальный переход (зебра для вертикального движения пешеходов)
-        # for i in range(18):
-        #     stripe = QGraphicsRectItem(
-        #         self.config.HORIZONTAL_CROSSWALK_X,
-        #         self.config.HORIZONTAL_LANE_Y - 60 + i * 5,
-        #         self.config.CROSSWALK_WIDTH, 3
-        #     )
-        #     stripe.setBrush(QBrush(self.config.LANE_COLOR))
-        #     stripe.setPen(QPen(Qt.GlobalColor.white, 1))
-        #     self.scene.addItem(stripe)
+    # def add_crosswalk_markings(self):
+    #     """Добавляет графическое отображение пешеходных переходов"""
+    #     # Горизонтальный переход (зебра для вертикального движения пешеходов)
+    #     for i in range(18):
+    #         stripe = QGraphicsRectItem(
+    #             self.config.HORIZONTAL_CROSSWALK_X - 20,
+    #             self.config.HORIZONTAL_LANE_Y - 62 + i * 5,
+    #             self.config.CROSSWALK_WIDTH + 15, 3
+    #         )
+    #         stripe.setBrush(QBrush(self.config.LANE_COLOR))
+    #         stripe.setPen(QPen(Qt.GlobalColor.white, 1))
+    #         self.scene.addItem(stripe)
 
-        # # Вертикальный переход (зебра для горизонтального движения пешеходов)
-        # for i in range(18):
-        #     stripe = QGraphicsRectItem(
-        #         self.config.VERTICAL_LANE_X - 40 + i * 5,
-        #         self.config.VERTICAL_CROSSWALK_Y,
-        #         3, self.config.CROSSWALK_WIDTH
-        #     )
-        #     stripe.setBrush(QBrush(self.config.LANE_COLOR))
-        #     stripe.setPen(QPen(Qt.GlobalColor.white, 1))
-        #     self.scene.addItem(stripe)
-        pass
+    #     # Вертикальный переход (зебра для горизонтального движения пешеходов)
+    #     for i in range(18):
+    #         stripe = QGraphicsRectItem(
+    #             self.config.VERTICAL_LANE_X - 40 + i * 5,
+    #             self.config.VERTICAL_CROSSWALK_Y,
+    #             3, self.config.CROSSWALK_WIDTH
+    #         )
+    #         stripe.setBrush(QBrush(self.config.LANE_COLOR))
+    #         stripe.setPen(QPen(Qt.GlobalColor.white, 1))
+    #         self.scene.addItem(stripe)
+    #     pass
 
     def add_traffic_lights(self):
         """Добавляет светофоры на перекресток"""
-        # Светофор для горизонтальной дороги
-        self.traffic_light_horizontal = TrafficLightItem(
-            self.config.HORIZONTAL_CROSSWALK_X - 0,
-            self.config.HORIZONTAL_LANE_Y + 40,
-            'horizontal'
+        # Remove existing traffic lights
+        for light in self.traffic_lights:
+            self.scene.removeItem(light)
+        self.traffic_lights.clear()
+        
+        # Vehicle traffic light for horizontal road
+        vehicle_light_horizontal = TrafficLightItem(
+            self.config.HORIZONTAL_CROSSWALK_X - 40,
+            self.config.HORIZONTAL_LANE_Y + 00,
+            light_type='vehicle',
+            scale=0.13,
+            rotation=0
         )
-        self.scene.addItem(self.traffic_light_horizontal)
+        vehicle_light_horizontal.setZValue(10)
+        self.scene.addItem(vehicle_light_horizontal)
+        self.traffic_lights.append(vehicle_light_horizontal)
+        
+        # Vehicle traffic light for vertical road
+        vehicle_light_vertical = TrafficLightItem(
+            self.config.VERTICAL_LANE_X - 70,
+            self.config.VERTICAL_CROSSWALK_Y + 20,
+            light_type='vehicle',
+            scale=0.13,
+            rotation=180
+        )
+        vehicle_light_vertical.setZValue(10)
+        self.scene.addItem(vehicle_light_vertical)
+        self.traffic_lights.append(vehicle_light_vertical)
+        
+        # Pedestrian traffic light for horizontal crossing (vertical pedestrians)
+        pedestrian_light_horizontal = TrafficLightItem(
+            self.config.HORIZONTAL_CROSSWALK_X + self.config.CROSSWALK_WIDTH - 60,
+            self.config.HORIZONTAL_LANE_Y - 80,
+            light_type='pedestrian',
+            scale=0.05,
+            rotation=0
+        )
 
-        # Светофор для вертикальной дороги
-        self.traffic_light_vertical = TrafficLightItem(
-            self.config.VERTICAL_LANE_X - 80,
-            self.config.VERTICAL_CROSSWALK_Y - 50,
-            'vertical'
+        self.scene.addItem(pedestrian_light_horizontal)
+        self.traffic_lights.append(pedestrian_light_horizontal)
+        
+        # Pedestrian traffic light for vertical crossing (horizontal pedestrians)
+        pedestrian_light_vertical = TrafficLightItem(
+            self.config.VERTICAL_LANE_X - 70,
+            self.config.VERTICAL_CROSSWALK_Y + self.config.CROSSWALK_WIDTH + 10,
+            light_type='pedestrian',
+            scale=0.05,
+            rotation=-90
         )
-        self.scene.addItem(self.traffic_light_vertical)
+        pedestrian_light_horizontal.setZValue(10)
+        pedestrian_light_vertical.setZValue(10)
+        pedestrian_light_vertical.update_state("green")
+        self.scene.addItem(pedestrian_light_vertical)
+        self.traffic_lights.append(pedestrian_light_vertical)
+        
         self.update_traffic_light_display()
-        self.traffic_light_vertical.update_lights(False, False, False)
+
 
     def update_traffic_light_display(self):
         """Обновляет отображение светофоров"""
-        # Проверяем, существует ли traffic_light_label
+        # Check if traffic_light_label exists
         if not hasattr(self, 'traffic_light_label') or self.traffic_light_label is None:
             return
-
-        if not hasattr(self, 'traffic_light_horizontal') or self.traffic_light_horizontal is None:
-            return
-
-        if not hasattr(self, 'traffic_light_vertical') or self.traffic_light_vertical is None:
-            return
-
-        if self.traffic_light.vehicle_green:
-            self.traffic_light_horizontal.update_lights(True, False, False)
-            self.traffic_light_vertical.update_lights(False, False, True)
-            self.traffic_light_label.setText("Светофор: Зеленый для горизонтального транспорта")
-        elif self.traffic_light.vehicle_yellow:
-            self.traffic_light_horizontal.update_lights(False, True, False)
-            self.traffic_light_vertical.update_lights(False, True, False)
+        
+        print(self.traffic_light.vehicle_yellow, " | ", self.traffic_light.vehicle_green)
+        if self.traffic_light.vehicle_yellow:
+            # Yellow for all vehicles
+            print("SRABOTALO")
+            self._update_vehicle_lights('yellow', 'yellow')
             self.traffic_light_label.setText("Светофор: Желтый для всех направлений")
-        else:
-            self.traffic_light_horizontal.update_lights(False, False, True)
-            self.traffic_light_vertical.update_lights(True, False, False)
+        elif not self.traffic_light.vehicle_green:
+            # Green for vertical vehicles
+            self._update_vehicle_lights('green', 'red')
+            self._update_pedestrian_lights('red', 'green')
             self.traffic_light_label.setText("Светофор: Зеленый для вертикального транспорта")
+        else:
+            # Green for horizontal vehicles
+            self._update_vehicle_lights('red', 'green')
+            self._update_pedestrian_lights('green', 'red')
+            self.traffic_light_label.setText("Светофор: Зеленый для горизонтального транспорта")
+    
 
+    #ТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕД
+    def _update_vehicle_lights(self, horizontal_state: str, vertical_state: str):
+        """Update vehicle traffic lights"""
+        light = self.traffic_lights[0]
+        light.update_state(vertical_state)
+        light = self.traffic_lights[1]
+        light.update_state(horizontal_state)
+    
+    def _update_pedestrian_lights(self, horizontal_state: str, vertical_state: str):
+        """Update pedestrian traffic lights"""
+        light = self.traffic_lights[2]
+        light.update_state(vertical_state)
+        light = self.traffic_lights[3]
+        light.update_state(horizontal_state)
+    
     def update_traffic_light(self):
         """Обновляет состояние светофора"""
         self.traffic_light.update()
@@ -269,15 +322,15 @@ class SimulationWidget(QGroupBox):
 
         if direction == 'vertical':
             x = random.randint(
-                self.config.HORIZONTAL_CROSSWALK_X,
+                self.config.HORIZONTAL_CROSSWALK_X - 20,
                 self.config.HORIZONTAL_CROSSWALK_X + self.config.CROSSWALK_WIDTH - self.config.PEDESTRIAN_WIDTH
             )
-            y = self.config.HORIZONTAL_LANE_Y + 40
+            y = self.config.HORIZONTAL_LANE_Y + 38
         else:
             x = self.config.VERTICAL_LANE_X + 55
             y = random.randint(
-                self.config.VERTICAL_CROSSWALK_Y,
-                self.config.VERTICAL_CROSSWALK_Y + self.config.CROSSWALK_WIDTH - self.config.PEDESTRIAN_HEIGHT
+                self.config.VERTICAL_CROSSWALK_Y - 5,
+                self.config.VERTICAL_CROSSWALK_Y + self.config.CROSSWALK_WIDTH + 17 - self.config.PEDESTRIAN_HEIGHT
             )
 
         pedestrian_item = PedestrianItem(pedestrian, x, y, self.config)
@@ -406,28 +459,24 @@ class SimulationWidget(QGroupBox):
         """Очищает сцену от всех объектов"""
         self.stop_movement()
 
-        # Удаляем все динамические объекты
-        for item in self.vehicle_items[:]:
-            self.scene.removeItem(item)
-        for item in self.pedestrian_items[:]:
-            self.scene.removeItem(item)
-
-        # Очищаем списки
+        # Очищаем списки ПЕРЕД удалением элементов
+        # Это предотвращает использование ссылок на удаленные объекты
         self.vehicles = []
         self.vehicle_items = []
         self.pedestrians = []
         self.pedestrian_items = []
+        self.traffic_lights = []  # Clear BEFORE scene.clear()
         self.crosswalks = []
 
-        # Восстанавливаем статичные элементы
+        # Очищаем сцену - это удалит все графические элементы
         self.scene.clear()
         
         # Заново загружаем фон
         self.load_background_image()
         
-        self.add_intersection_markings()
+        # self.add_intersection_markings()
         self.add_crosswalks()
-        self.add_traffic_lights()
+        self.add_traffic_lights()  # This will recreate traffic lights
 
         # Сбрасываем статистику
         self.statistics.reset()
