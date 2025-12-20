@@ -17,51 +17,79 @@ class SettingsWidget(QGroupBox):
         layout = QVBoxLayout()
 
         # Создаем таблицу для настроек
-        self.settings_table = QTableWidget(12, 2)  # Увеличили количество строк
+        self.settings_table = QTableWidget(16, 2)  # Increased for new directions
         self.settings_table.setHorizontalHeaderLabels(["Параметр", "Значение"])
 
-        # Заполняем таблицу данными
+        # Заполняем таблицу данными, сгруппированные по направлениям
         settings_data = [
-            ("Добавить автомобиль (горизонтальный)", "Кнопка"),
-            ("Добавить автомобиль (вертикальный)", "Кнопка"),
-            ("Добавить грузовик (горизонтальный)", "Кнопка"),
-            ("Добавить грузовик (вертикальный)", "Кнопка"),
-            ("Добавить автобус (горизонтальный)", "Кнопка"),
-            ("Добавить автобус (вертикальный)", "Кнопка"),
+            ("Машины вправо - Автомобиль", "Кнопка"),
+            ("Машины вправо - Грузовик", "Кнопка"),
+            ("Машины вправо - Автобус", "Кнопка"),
+            ("Машины влево - Автомобиль", "Кнопка"),
+            ("Машины влево - Грузовик", "Кнопка"),
+            ("Машины влево - Автобус", "Кнопка"),
+            ("Машины вниз - Автомобиль", "Кнопка"),
+            ("Машины вниз - Грузовик", "Кнопка"),
+            ("Машины вниз - Автобус", "Кнопка"),
+            ("Машины вверх - Автомобиль", "Кнопка"),
+            ("Машины вверх - Грузовик", "Кнопка"),
+            ("Машины вверх - Автобус", "Кнопка"),
             ("Добавить пешехода (вертикальный переход)", "Кнопка"),
             ("Добавить пешехода (горизонтальный переход)", "Кнопка"),
             ("Интервал генерации машин (мс)", "2000"),
             ("Интервал генерации пешеходов (мс)", "5000"),
-            ("Время зеленого для транспорта", "60"),
-            ("Время зеленого для пешеходов", "30")
         ]
 
         for row, (param, value) in enumerate(settings_data):
             self.settings_table.setItem(row, 0, QTableWidgetItem(param))
 
-            if "автомобиль (горизонтальный)" in param:
+            if "Машины вправо - Автомобиль" in param:
                 button = QPushButton("Добавить")
-                button.clicked.connect(lambda: self.add_car_to_simulation('horizontal'))
+                button.clicked.connect(lambda: self.add_car_to_simulation('horizontal_right'))
                 self.settings_table.setCellWidget(row, 1, button)
-            elif "автомобиль (вертикальный)" in param:
+            elif "Машины вправо - Грузовик" in param:
                 button = QPushButton("Добавить")
-                button.clicked.connect(lambda: self.add_car_to_simulation('vertical'))
+                button.clicked.connect(lambda: self.add_truck_to_simulation('horizontal_right'))
                 self.settings_table.setCellWidget(row, 1, button)
-            elif "грузовик (горизонтальный)" in param:
+            elif "Машины вправо - Автобус" in param:
                 button = QPushButton("Добавить")
-                button.clicked.connect(lambda: self.add_truck_to_simulation('horizontal'))
+                button.clicked.connect(lambda: self.add_bus_to_simulation('horizontal_right'))
                 self.settings_table.setCellWidget(row, 1, button)
-            elif "грузовик (вертикальный)" in param:
+            elif "Машины влево - Автомобиль" in param:
                 button = QPushButton("Добавить")
-                button.clicked.connect(lambda: self.add_truck_to_simulation('vertical'))
+                button.clicked.connect(lambda: self.add_car_to_simulation('horizontal_left'))
                 self.settings_table.setCellWidget(row, 1, button)
-            elif "автобус (горизонтальный)" in param:
+            elif "Машины влево - Грузовик" in param:
                 button = QPushButton("Добавить")
-                button.clicked.connect(lambda: self.add_bus_to_simulation('horizontal'))
+                button.clicked.connect(lambda: self.add_truck_to_simulation('horizontal_left'))
                 self.settings_table.setCellWidget(row, 1, button)
-            elif "автобус (вертикальный)" in param:
+            elif "Машины влево - Автобус" in param:
                 button = QPushButton("Добавить")
-                button.clicked.connect(lambda: self.add_bus_to_simulation('vertical'))
+                button.clicked.connect(lambda: self.add_bus_to_simulation('horizontal_left'))
+                self.settings_table.setCellWidget(row, 1, button)
+            elif "Машины вниз - Автомобиль" in param:
+                button = QPushButton("Добавить")
+                button.clicked.connect(lambda: self.add_car_to_simulation('vertical_down'))
+                self.settings_table.setCellWidget(row, 1, button)
+            elif "Машины вниз - Грузовик" in param:
+                button = QPushButton("Добавить")
+                button.clicked.connect(lambda: self.add_truck_to_simulation('vertical_down'))
+                self.settings_table.setCellWidget(row, 1, button)
+            elif "Машины вниз - Автобус" in param:
+                button = QPushButton("Добавить")
+                button.clicked.connect(lambda: self.add_bus_to_simulation('vertical_down'))
+                self.settings_table.setCellWidget(row, 1, button)
+            elif "Машины вверх - Автомобиль" in param:
+                button = QPushButton("Добавить")
+                button.clicked.connect(lambda: self.add_car_to_simulation('vertical_up'))
+                self.settings_table.setCellWidget(row, 1, button)
+            elif "Машины вверх - Грузовик" in param:
+                button = QPushButton("Добавить")
+                button.clicked.connect(lambda: self.add_truck_to_simulation('vertical_up'))
+                self.settings_table.setCellWidget(row, 1, button)
+            elif "Машины вверх - Автобус" in param:
+                button = QPushButton("Добавить")
+                button.clicked.connect(lambda: self.add_bus_to_simulation('vertical_up'))
                 self.settings_table.setCellWidget(row, 1, button)
             elif "пешехода (вертикальный переход)" in param:
                 button = QPushButton("Добавить")
@@ -82,18 +110,6 @@ class SettingsWidget(QGroupBox):
                 spinbox.setRange(1000, 15000)
                 spinbox.setValue(5000)
                 spinbox.valueChanged.connect(self.update_pedestrian_interval)
-                self.settings_table.setCellWidget(row, 1, spinbox)
-            elif "Время зеленого для транспорта" in param:
-                spinbox = QSpinBox()
-                spinbox.setRange(10, 200)
-                spinbox.setValue(60)
-                spinbox.valueChanged.connect(self.update_vehicle_green_time)
-                self.settings_table.setCellWidget(row, 1, spinbox)
-            elif "Время зеленого для пешеходов" in param:
-                spinbox = QSpinBox()
-                spinbox.setRange(10, 200)
-                spinbox.setValue(30)
-                spinbox.valueChanged.connect(self.update_pedestrian_green_time)
                 self.settings_table.setCellWidget(row, 1, spinbox)
             else:
                 self.settings_table.setItem(row, 1, QTableWidgetItem(value))
