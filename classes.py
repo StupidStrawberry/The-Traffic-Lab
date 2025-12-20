@@ -2,12 +2,12 @@ class Vehicle:
     def __init__(self, id, type, direction):
         self.id = id
         self.type = type
-        self.direction = direction  # 'horizontal' или 'vertical'
+        self.direction = direction  # 'horizontal_right', 'horizontal_left', 'vertical_down', 'vertical_up'
 
 class Pedestrian:
     def __init__(self, id, direction):
         self.id = id
-        self.direction = direction  # 'horizontal' или 'vertical'
+        self.direction = direction  # 'vertical' or 'horizontal'
 
 class Crosswalk:
     def __init__(self, id, position, width, direction):

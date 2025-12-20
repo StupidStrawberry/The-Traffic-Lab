@@ -27,9 +27,15 @@ class VehicleItem(QGraphicsPixmapItem):
 
         # Set offset to center the image
 
-        # Поворачиваем вертикальные транспортные средства
-        if vehicle.direction == 'vertical':
-            self.setRotation(90)
+        # Rotate vehicles based on direction
+        if vehicle.direction == 'horizontal_right':
+            self.setRotation(self.config.VEHICLE_ROTATION_RIGHT)
+        elif vehicle.direction == 'horizontal_left':
+            self.setRotation(self.config.VEHICLE_ROTATION_LEFT)
+        elif vehicle.direction == 'vertical_down':
+            self.setRotation(self.config.VEHICLE_ROTATION_DOWN)
+        elif vehicle.direction == 'vertical_up':
+            self.setRotation(self.config.VEHICLE_ROTATION_UP)
 
     def _create_vehicle_pixmap(self, vehicle: Vehicle, config):
         """Create pixmap for vehicle, using image if available or creating a colored rectangle"""
@@ -99,34 +105,47 @@ class VehicleItem(QGraphicsPixmapItem):
                 self.waiting = False
             return False
 
-        if self.vehicle.direction == 'horizontal':
+        if self.vehicle.direction in ['horizontal_right', 'horizontal_left']:
             return self._move_horizontal(vehicles, pedestrians, traffic_light)
         else:
             return self._move_vertical(vehicles, pedestrians, traffic_light)
 
     def _move_horizontal(self, vehicles, pedestrians, traffic_light) -> bool:
-        new_x = self.x() + self.speed
-
-        if self._has_collision(vehicles, new_x, self.y()) or \
-                self._should_stop_for_crosswalk_horizontal(new_x, pedestrians, traffic_light):
-            return False
-
-        self.setX(new_x)
-        return new_x > self.config.SCENE_WIDTH
+        if self.vehicle.direction == 'horizontal_right':
+            new_x = self.x() + self.speed
+            if self._has_collision(vehicles, new_x, self.y()) or \
+                    self._should_stop_for_crosswalk_horizontal(new_x, pedestrians, traffic_light):
+                return False
+            self.setX(new_x)
+            return new_x > self.config.SCENE_WIDTH
+        else:  # horizontal_left
+            new_x = self.x() - self.speed
+            if self._has_collision(vehicles, new_x, self.y()) or \
+                    self._should_stop_for_crosswalk_horizontal(new_x, pedestrians, traffic_light):
+                return False
+            self.setX(new_x)
+            return new_x < -self.config.VEHICLE_WIDTH
 
     def _move_vertical(self, vehicles, pedestrians, traffic_light) -> bool:
-        new_y = self.y() + self.speed
-
-        if self._has_collision(vehicles, self.x(), new_y) or \
-                self._should_stop_for_crosswalk_vertical(new_y, pedestrians, traffic_light):
-            return False
-
-        self.setY(new_y)
-        return new_y > self.config.SCENE_HEIGHT
+        if self.vehicle.direction == 'vertical_down':
+            new_y = self.y() + self.speed
+            if self._has_collision(vehicles, self.x(), new_y) or \
+                    self._should_stop_for_crosswalk_vertical(new_y, pedestrians, traffic_light):
+                return False
+            self.setY(new_y)
+            return new_y > self.config.SCENE_HEIGHT
+        else:  # vertical_up
+            new_y = self.y() - self.speed
+            if self._has_collision(vehicles, self.x(), new_y) or \
+                    self._should_stop_for_crosswalk_vertical(new_y, pedestrians, traffic_light):
+                return False
+            self.setY(new_y)
+            return new_y < -self.config.VEHICLE_WIDTH
 
     def _has_collision(self, vehicles: List['VehicleItem'], new_x: float, new_y: float) -> bool:
         for other in vehicles:
             if other != self:
+                # Only check collision with vehicles going in the same direction
                 if (other.vehicle.direction == self.vehicle.direction and
                         abs(other.x() - new_x) < self.config.MIN_DISTANCE_BETWEEN_VEHICLES and
                         abs(other.y() - new_y) < self.config.MIN_DISTANCE_BETWEEN_VEHICLES):
@@ -138,28 +157,52 @@ class VehicleItem(QGraphicsPixmapItem):
         crosswalk_start = self.config.HORIZONTAL_CROSSWALK_X
         crosswalk_end = crosswalk_start + self.config.CROSSWALK_WIDTH
 
-        current_on_crosswalk = (self.x() < crosswalk_end and
-                                self.x() + self.config.VEHICLE_WIDTH > crosswalk_start)
-        
-        will_be_on_crosswalk = (new_x < crosswalk_end and
-                                new_x + self.config.VEHICLE_WIDTH + 30 > crosswalk_start)
+        if self.vehicle.direction == 'horizontal_right':
+            current_on_crosswalk = (self.x() < crosswalk_end and
+                                    self.x() + self.config.VEHICLE_WIDTH > crosswalk_start)
+            
+            will_be_on_crosswalk = (new_x < crosswalk_end and
+                                    new_x + self.config.VEHICLE_WIDTH + self.config.VEHICLE_EXTENDED_CROSSWALK_CHECK_HORIZONTAL > crosswalk_start)
 
-        has_pedestrians = any(p.crossing and p.pedestrian.direction == 'vertical'
-                              for p in pedestrians)
-        
-        stop_position = crosswalk_start - self.config.VEHICLE_WIDTH - 50
+            has_pedestrians = any(p.crossing and p.pedestrian.direction == 'vertical'
+                                  for p in pedestrians)
+            
+            stop_position = crosswalk_start - self.config.VEHICLE_WIDTH - self.config.VEHICLE_STOP_DISTANCE_HORIZONTAL_RIGHT
 
-        if will_be_on_crosswalk:
-            if current_on_crosswalk:
-                return False
-            elif traffic_light.vehicle_green and has_pedestrians:
-                return True
-            elif traffic_light.vehicle_green:
-                return False
-            elif new_x > stop_position:
-                return True
-            elif not traffic_light.vehicle_green or traffic_light.vehicle_yellow:
-                return True
+            if will_be_on_crosswalk:
+                if current_on_crosswalk:
+                    return False
+                elif traffic_light.vehicle_green and has_pedestrians:
+                    return True
+                elif traffic_light.vehicle_green:
+                    return False
+                elif new_x > stop_position:
+                    return True
+                elif not traffic_light.vehicle_green or traffic_light.vehicle_yellow:
+                    return True
+        else:  # horizontal_left
+            current_on_crosswalk = (self.x() > crosswalk_start - self.config.VEHICLE_WIDTH and
+                                    self.x() < crosswalk_end)
+            
+            will_be_on_crosswalk = (new_x > crosswalk_start - self.config.VEHICLE_WIDTH - self.config.VEHICLE_EXTENDED_CROSSWALK_CHECK_HORIZONTAL and
+                                    new_x < crosswalk_end)
+
+            has_pedestrians = any(p.crossing and p.pedestrian.direction == 'vertical'
+                                  for p in pedestrians)
+            
+            stop_position = crosswalk_end + self.config.VEHICLE_WIDTH + self.config.VEHICLE_STOP_DISTANCE_HORIZONTAL_LEFT
+
+            if will_be_on_crosswalk:
+                if current_on_crosswalk:
+                    return False
+                elif traffic_light.vehicle_green and has_pedestrians:
+                    return True
+                elif traffic_light.vehicle_green:
+                    return False
+                elif new_x < stop_position:
+                    return True
+                elif not traffic_light.vehicle_green or traffic_light.vehicle_yellow:
+                    return True
         return False
 
     def _should_stop_for_crosswalk_vertical(self, new_y: float, pedestrians: List['PedestrianItem'],
@@ -167,29 +210,54 @@ class VehicleItem(QGraphicsPixmapItem):
         crosswalk_start = self.config.VERTICAL_CROSSWALK_Y
         crosswalk_end = crosswalk_start + self.config.CROSSWALK_WIDTH
 
-        current_on_crosswalk = (self.y() < crosswalk_end and
-                                self.y() + self.config.VEHICLE_HEIGHT > crosswalk_start)
-        will_be_on_crosswalk = (new_y < crosswalk_end and
-                                new_y + self.config.VEHICLE_HEIGHT + 40 > crosswalk_start)
+        if self.vehicle.direction == 'vertical_down':
+            current_on_crosswalk = (self.y() < crosswalk_end and
+                                    self.y() + self.config.VEHICLE_HEIGHT > crosswalk_start)
+            will_be_on_crosswalk = (new_y < crosswalk_end and
+                                    new_y + self.config.VEHICLE_HEIGHT + self.config.VEHICLE_EXTENDED_CROSSWALK_CHECK_VERTICAL > crosswalk_start)
 
-        has_pedestrians = any(p.crossing and p.pedestrian.direction == 'horizontal'
-                              for p in pedestrians)
+            has_pedestrians = any(p.crossing and p.pedestrian.direction == 'horizontal'
+                                  for p in pedestrians)
 
-        stop_position = crosswalk_start - self.config.VEHICLE_HEIGHT - 30
+            stop_position = crosswalk_start - self.config.VEHICLE_HEIGHT - self.config.VEHICLE_STOP_DISTANCE_VERTICAL_DOWN
 
-        if will_be_on_crosswalk:
-            if current_on_crosswalk:
-                return False
-            if traffic_light.vehicle_yellow:
-                return True
-            elif not traffic_light.vehicle_green and has_pedestrians:
-                return True
-            elif not traffic_light.vehicle_green:
-                return False
-            elif new_y > stop_position:
-                return True
-            elif traffic_light.vehicle_green:
-                return True
+            if will_be_on_crosswalk:
+                if current_on_crosswalk:
+                    return False
+                if traffic_light.vehicle_yellow:
+                    return True
+                elif not traffic_light.vehicle_green and has_pedestrians:
+                    return True
+                elif not traffic_light.vehicle_green:
+                    return False
+                elif new_y > stop_position:
+                    return True
+                elif traffic_light.vehicle_green:
+                    return True
+        else:  # vertical_up
+            current_on_crosswalk = (self.y() > crosswalk_start - self.config.VEHICLE_HEIGHT and
+                                    self.y() < crosswalk_end)
+            will_be_on_crosswalk = (new_y > crosswalk_start - self.config.VEHICLE_HEIGHT - self.config.VEHICLE_EXTENDED_CROSSWALK_CHECK_VERTICAL and
+                                    new_y < crosswalk_end)
+
+            has_pedestrians = any(p.crossing and p.pedestrian.direction == 'horizontal'
+                                  for p in pedestrians)
+
+            stop_position = crosswalk_end + self.config.VEHICLE_HEIGHT + self.config.VEHICLE_STOP_DISTANCE_VERTICAL_UP
+
+            if will_be_on_crosswalk:
+                if current_on_crosswalk:
+                    return False
+                if traffic_light.vehicle_yellow:
+                    return True
+                elif not traffic_light.vehicle_green and has_pedestrians:
+                    return True
+                elif not traffic_light.vehicle_green:
+                    return False
+                elif new_y < stop_position:
+                    return True
+                elif traffic_light.vehicle_green:
+                    return True
         return False
 
 
@@ -216,11 +284,9 @@ class PedestrianItem(QGraphicsPixmapItem):  # Changed from QGraphicsRectItem to 
         # IMPORTANT: The pedestrian.png should be facing RIGHT by default
         if pedestrian.direction == 'vertical':
             # For vertical movement (up), we need to rotate -90 degrees (facing up)
-            self.setRotation(-90)
+            self.setRotation(self.config.PEDESTRIAN_ROTATION_VERTICAL)
         else:
-            self.setRotation(180)
-        # For horizontal movement (left), we keep 0 rotation (facing right) 
-        # since they will be moving left but facing right
+            self.setRotation(self.config.PEDESTRIAN_ROTATION_HORIZONTAL)
 
     def _create_pedestrian_pixmap(self, pedestrian: Pedestrian, config):
         """Create pixmap for pedestrian, using image if available or creating a colored rectangle"""
@@ -294,18 +360,18 @@ class PedestrianItem(QGraphicsPixmapItem):  # Changed from QGraphicsRectItem to 
 
         if self.crossing and not self.crossed:
             if self.pedestrian.direction == 'vertical':
-                # Вертикальные пешеходы движутся вверх
+                # Vertical pedestrians move up
                 new_y = self.y() - self.speed
                 self.setY(new_y)
-                if new_y < 220:
+                if new_y < self.config.PEDESTRIAN_VERTICAL_CROSS_END_Y:
                     self.crossed = True
                     self.crossing = False
                     return True
             else:
-                # Горизонтальные пешеходы движутся влево
+                # Horizontal pedestrians move left
                 new_x = self.x() - self.speed
                 self.setX(new_x)
-                if new_x < 360:
+                if new_x < self.config.PEDESTRIAN_HORIZONTAL_CROSS_END_X:
                     self.crossed = True
                     self.crossing = False
                     return True
@@ -315,15 +381,15 @@ class PedestrianItem(QGraphicsPixmapItem):  # Changed from QGraphicsRectItem to 
     def _should_wait_for_vehicles(self, vehicles: List[VehicleItem]) -> bool:
         for vehicle in vehicles:
             if self.pedestrian.direction == 'vertical':
-                # Проверяем горизонтальные транспортные средства
-                if vehicle.vehicle.direction == 'horizontal':
+                # Check both horizontal directions
+                if vehicle.vehicle.direction in ['horizontal_right', 'horizontal_left']:
                     vehicle_x = vehicle.x()
                     if (vehicle_x < self.config.HORIZONTAL_CROSSWALK_X + self.config.CROSSWALK_WIDTH and
                             vehicle_x > self.config.HORIZONTAL_CROSSWALK_X):
                         return True
             else:
-                # Проверяем вертикальные транспортные средства
-                if vehicle.vehicle.direction == 'vertical':
+                # Check both vertical directions
+                if vehicle.vehicle.direction in ['vertical_down', 'vertical_up']:
                     vehicle_y = vehicle.y()
                     if (vehicle_y < self.config.VERTICAL_CROSSWALK_Y + self.config.CROSSWALK_WIDTH and
                             vehicle_y > self.config.VERTICAL_CROSSWALK_Y):

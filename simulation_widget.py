@@ -198,11 +198,11 @@ class SimulationWidget(QGroupBox):
         
         # Vehicle traffic light for horizontal road
         vehicle_light_horizontal = TrafficLightItem(
-            self.config.HORIZONTAL_CROSSWALK_X - 40,
-            self.config.HORIZONTAL_LANE_Y + 00,
+            self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_X,
+            self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_Y,
             light_type='vehicle',
-            scale=0.13,
-            rotation=0
+            scale=self.config.TRAFFIC_LIGHT_VEHICLE_SCALE,
+            rotation=self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_ROTATION
         )
         vehicle_light_horizontal.setZValue(10)
         self.scene.addItem(vehicle_light_horizontal)
@@ -210,11 +210,11 @@ class SimulationWidget(QGroupBox):
         
         # Vehicle traffic light for vertical road
         vehicle_light_vertical = TrafficLightItem(
-            self.config.VERTICAL_LANE_X - 70,
-            self.config.VERTICAL_CROSSWALK_Y + 20,
+            self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_X,
+            self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_Y,
             light_type='vehicle',
-            scale=0.13,
-            rotation=180
+            scale=self.config.TRAFFIC_LIGHT_VEHICLE_SCALE,
+            rotation=self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_ROTATION
         )
         vehicle_light_vertical.setZValue(10)
         self.scene.addItem(vehicle_light_vertical)
@@ -222,11 +222,11 @@ class SimulationWidget(QGroupBox):
         
         # Pedestrian traffic light for horizontal crossing (vertical pedestrians)
         pedestrian_light_horizontal = TrafficLightItem(
-            self.config.HORIZONTAL_CROSSWALK_X + self.config.CROSSWALK_WIDTH - 60,
-            self.config.HORIZONTAL_LANE_Y - 80,
+            self.config.TRAFFIC_LIGHT_PEDESTRIAN_HORIZONTAL_X,
+            self.config.TRAFFIC_LIGHT_PEDESTRIAN_HORIZONTAL_Y,
             light_type='pedestrian',
-            scale=0.05,
-            rotation=0
+            scale=self.config.TRAFFIC_LIGHT_PEDESTRIAN_SCALE,
+            rotation=self.config.TRAFFIC_LIGHT_PEDESTRIAN_HORIZONTAL_ROTATION
         )
 
         self.scene.addItem(pedestrian_light_horizontal)
@@ -234,11 +234,11 @@ class SimulationWidget(QGroupBox):
         
         # Pedestrian traffic light for vertical crossing (horizontal pedestrians)
         pedestrian_light_vertical = TrafficLightItem(
-            self.config.VERTICAL_LANE_X - 70,
-            self.config.VERTICAL_CROSSWALK_Y + self.config.CROSSWALK_WIDTH + 10,
+            self.config.TRAFFIC_LIGHT_PEDESTRIAN_VERTICAL_X,
+            self.config.TRAFFIC_LIGHT_PEDESTRIAN_VERTICAL_Y,
             light_type='pedestrian',
-            scale=0.05,
-            rotation=-90
+            scale=self.config.TRAFFIC_LIGHT_PEDESTRIAN_SCALE,
+            rotation=self.config.TRAFFIC_LIGHT_PEDESTRIAN_VERTICAL_ROTATION
         )
         pedestrian_light_horizontal.setZValue(10)
         pedestrian_light_vertical.setZValue(10)
@@ -293,17 +293,23 @@ class SimulationWidget(QGroupBox):
         self.traffic_light.update()
         self.update_traffic_light_display()
 
-    def add_vehicle(self, vehicle_type='car', direction='horizontal'):
+    def add_vehicle(self, vehicle_type='car', direction='horizontal_right'):
         """Добавляет транспортное средство на сцену"""
         vehicle_id = f"V{self.statistics.vehicle_count:03d}"
         vehicle = Vehicle(vehicle_id, vehicle_type, direction)
 
-        if direction == 'horizontal':
+        if direction == 'horizontal_right':
             x = -self.config.VEHICLE_WIDTH
             y = self.config.HORIZONTAL_LANE_Y - self.config.VEHICLE_HEIGHT // 2
-        else:
+        elif direction == 'horizontal_left':
+            x = self.config.SCENE_WIDTH
+            y = self.config.HORIZONTAL_LANE_Y + self.config.HORIZONTAL_ONCOMING_TRAFFIC_OFFSET - self.config.VEHICLE_HEIGHT // 2
+        elif direction == 'vertical_down':
             x = self.config.VERTICAL_LANE_X - self.config.VEHICLE_HEIGHT // 2
             y = -self.config.VEHICLE_WIDTH
+        else:  # vertical_up
+            x = self.config.VERTICAL_LANE_X + self.config.VERTICAL_ONCOMING_TRAFFIC_OFFSET - self.config.VEHICLE_HEIGHT // 2
+            y = self.config.SCENE_HEIGHT
 
         vehicle_item = VehicleItem(vehicle, x, y, self.config)
         self.scene.addItem(vehicle_item)
@@ -322,15 +328,15 @@ class SimulationWidget(QGroupBox):
 
         if direction == 'vertical':
             x = random.randint(
-                self.config.HORIZONTAL_CROSSWALK_X - 20,
+                self.config.PEDESTRIAN_SPAWN_VERTICAL_X_MIN,
                 self.config.HORIZONTAL_CROSSWALK_X + self.config.CROSSWALK_WIDTH - self.config.PEDESTRIAN_WIDTH
             )
-            y = self.config.HORIZONTAL_LANE_Y + 38
+            y = self.config.PEDESTRIAN_SPAWN_VERTICAL_Y
         else:
-            x = self.config.VERTICAL_LANE_X + 55
+            x = self.config.PEDESTRIAN_SPAWN_HORIZONTAL_X
             y = random.randint(
-                self.config.VERTICAL_CROSSWALK_Y - 5,
-                self.config.VERTICAL_CROSSWALK_Y + self.config.CROSSWALK_WIDTH + 17 - self.config.PEDESTRIAN_HEIGHT
+                self.config.PEDESTRIAN_SPAWN_HORIZONTAL_Y_MIN,
+                self.config.VERTICAL_CROSSWALK_Y + self.config.CROSSWALK_WIDTH + self.config.PEDESTRIAN_SPAWN_HORIZONTAL_Y_MAX_OFFSET - self.config.PEDESTRIAN_HEIGHT
             )
 
         pedestrian_item = PedestrianItem(pedestrian, x, y, self.config)
@@ -350,13 +356,13 @@ class SimulationWidget(QGroupBox):
         return pedestrian
 
     # Обновим методы добавления конкретных типов транспортных средств
-    def add_car(self, direction='horizontal'):
+    def add_car(self, direction='horizontal_right'):
         self.add_vehicle('car', direction)
 
-    def add_truck(self, direction='horizontal'):
+    def add_truck(self, direction='horizontal_right'):
         self.add_vehicle('truck', direction)
 
-    def add_bus(self, direction='horizontal'):
+    def add_bus(self, direction='horizontal_right'):
         self.add_vehicle('bus', direction)
 
     def start_movement(self):
@@ -393,7 +399,8 @@ class SimulationWidget(QGroupBox):
         """Генерирует случайное транспортное средство"""
         vehicle_types = ['car', 'truck', 'bus']
         vehicle_type = random.choice(vehicle_types)
-        direction = random.choice(['horizontal', 'vertical'])
+        directions = ['horizontal_right', 'horizontal_left', 'vertical_down', 'vertical_up']
+        direction = random.choice(directions)
         self.add_vehicle(vehicle_type, direction)
 
     def generate_pedestrian(self):
