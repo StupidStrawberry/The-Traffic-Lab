@@ -180,13 +180,15 @@ class VehicleItem(QGraphicsPixmapItem):
         if will_be_on_crosswalk:
             if current_on_crosswalk:
                 return False
+            if traffic_light.vehicle_yellow:
+                return True
             elif not traffic_light.vehicle_green and has_pedestrians:
                 return True
             elif not traffic_light.vehicle_green:
                 return False
             elif new_y > stop_position:
                 return True
-            elif traffic_light.vehicle_green or traffic_light.vehicle_yellow:
+            elif traffic_light.vehicle_green:
                 return True
         return False
 

@@ -26,8 +26,7 @@ class SimulationWidget(QGroupBox):
         self.pedestrians = []
         self.pedestrian_items = []
         self.crosswalks = []  # Теперь список переходов
-        self.traffic_light_horizontal = None
-        self.traffic_light_vertical = None
+        self.traffic_lights = []  # List of all traffic lights
         self.background_pixmap = None
 
         self.setup_ui()
@@ -192,49 +191,103 @@ class SimulationWidget(QGroupBox):
 
     def add_traffic_lights(self):
         """Добавляет светофоры на перекресток"""
-        # Светофор для горизонтальной дороги
-        self.traffic_light_horizontal = TrafficLightItem(
-            self.config.HORIZONTAL_CROSSWALK_X - 0,
-            self.config.HORIZONTAL_LANE_Y + 40,
-            'horizontal'
+        # Remove existing traffic lights
+        for light in self.traffic_lights:
+            self.scene.removeItem(light)
+        self.traffic_lights.clear()
+        
+        # Vehicle traffic light for horizontal road
+        vehicle_light_horizontal = TrafficLightItem(
+            self.config.HORIZONTAL_CROSSWALK_X - 40,
+            self.config.HORIZONTAL_LANE_Y + 00,
+            light_type='vehicle',
+            scale=0.13,
+            rotation=0
         )
-        self.scene.addItem(self.traffic_light_horizontal)
+        vehicle_light_horizontal.setZValue(10)
+        self.scene.addItem(vehicle_light_horizontal)
+        self.traffic_lights.append(vehicle_light_horizontal)
+        
+        # Vehicle traffic light for vertical road
+        vehicle_light_vertical = TrafficLightItem(
+            self.config.VERTICAL_LANE_X - 70,
+            self.config.VERTICAL_CROSSWALK_Y + 20,
+            light_type='vehicle',
+            scale=0.13,
+            rotation=180
+        )
+        vehicle_light_vertical.setZValue(10)
+        self.scene.addItem(vehicle_light_vertical)
+        self.traffic_lights.append(vehicle_light_vertical)
+        
+        # Pedestrian traffic light for horizontal crossing (vertical pedestrians)
+        pedestrian_light_horizontal = TrafficLightItem(
+            self.config.HORIZONTAL_CROSSWALK_X + self.config.CROSSWALK_WIDTH - 60,
+            self.config.HORIZONTAL_LANE_Y - 80,
+            light_type='pedestrian',
+            scale=0.05,
+            rotation=0
+        )
 
-        # Светофор для вертикальной дороги
-        self.traffic_light_vertical = TrafficLightItem(
-            self.config.VERTICAL_LANE_X - 80,
-            self.config.VERTICAL_CROSSWALK_Y - 50,
-            'vertical'
+        self.scene.addItem(pedestrian_light_horizontal)
+        self.traffic_lights.append(pedestrian_light_horizontal)
+        
+        # Pedestrian traffic light for vertical crossing (horizontal pedestrians)
+        pedestrian_light_vertical = TrafficLightItem(
+            self.config.VERTICAL_LANE_X - 70,
+            self.config.VERTICAL_CROSSWALK_Y + self.config.CROSSWALK_WIDTH + 10,
+            light_type='pedestrian',
+            scale=0.05,
+            rotation=-90
         )
-        self.scene.addItem(self.traffic_light_vertical)
+        pedestrian_light_horizontal.setZValue(10)
+        pedestrian_light_vertical.setZValue(10)
+        pedestrian_light_vertical.update_state("green")
+        self.scene.addItem(pedestrian_light_vertical)
+        self.traffic_lights.append(pedestrian_light_vertical)
+        
         self.update_traffic_light_display()
-        self.traffic_light_vertical.update_lights(False, False, False)
+
 
     def update_traffic_light_display(self):
         """Обновляет отображение светофоров"""
-        # Проверяем, существует ли traffic_light_label
+        # Check if traffic_light_label exists
         if not hasattr(self, 'traffic_light_label') or self.traffic_light_label is None:
             return
-
-        if not hasattr(self, 'traffic_light_horizontal') or self.traffic_light_horizontal is None:
-            return
-
-        if not hasattr(self, 'traffic_light_vertical') or self.traffic_light_vertical is None:
-            return
-
-        if self.traffic_light.vehicle_green:
-            self.traffic_light_horizontal.update_lights(True, False, False)
-            self.traffic_light_vertical.update_lights(False, False, True)
-            self.traffic_light_label.setText("Светофор: Зеленый для горизонтального транспорта")
-        elif self.traffic_light.vehicle_yellow:
-            self.traffic_light_horizontal.update_lights(False, True, False)
-            self.traffic_light_vertical.update_lights(False, True, False)
+        
+        print(self.traffic_light.vehicle_yellow, " | ", self.traffic_light.vehicle_green)
+        if self.traffic_light.vehicle_yellow:
+            # Yellow for all vehicles
+            print("SRABOTALO")
+            self._update_vehicle_lights('yellow', 'yellow')
             self.traffic_light_label.setText("Светофор: Желтый для всех направлений")
-        else:
-            self.traffic_light_horizontal.update_lights(False, False, True)
-            self.traffic_light_vertical.update_lights(True, False, False)
+        elif not self.traffic_light.vehicle_green:
+            # Green for vertical vehicles
+            self._update_vehicle_lights('green', 'red')
+            self._update_pedestrian_lights('red', 'green')
             self.traffic_light_label.setText("Светофор: Зеленый для вертикального транспорта")
+        else:
+            # Green for horizontal vehicles
+            self._update_vehicle_lights('red', 'green')
+            self._update_pedestrian_lights('green', 'red')
+            self.traffic_light_label.setText("Светофор: Зеленый для горизонтального транспорта")
+    
 
+    #ТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕД
+    def _update_vehicle_lights(self, horizontal_state: str, vertical_state: str):
+        """Update vehicle traffic lights"""
+        light = self.traffic_lights[0]
+        light.update_state(vertical_state)
+        light = self.traffic_lights[1]
+        light.update_state(horizontal_state)
+    
+    def _update_pedestrian_lights(self, horizontal_state: str, vertical_state: str):
+        """Update pedestrian traffic lights"""
+        light = self.traffic_lights[2]
+        light.update_state(vertical_state)
+        light = self.traffic_lights[3]
+        light.update_state(horizontal_state)
+    
     def update_traffic_light(self):
         """Обновляет состояние светофора"""
         self.traffic_light.update()
@@ -406,20 +459,16 @@ class SimulationWidget(QGroupBox):
         """Очищает сцену от всех объектов"""
         self.stop_movement()
 
-        # Удаляем все динамические объекты
-        for item in self.vehicle_items[:]:
-            self.scene.removeItem(item)
-        for item in self.pedestrian_items[:]:
-            self.scene.removeItem(item)
-
-        # Очищаем списки
+        # Очищаем списки ПЕРЕД удалением элементов
+        # Это предотвращает использование ссылок на удаленные объекты
         self.vehicles = []
         self.vehicle_items = []
         self.pedestrians = []
         self.pedestrian_items = []
+        self.traffic_lights = []  # Clear BEFORE scene.clear()
         self.crosswalks = []
 
-        # Восстанавливаем статичные элементы
+        # Очищаем сцену - это удалит все графические элементы
         self.scene.clear()
         
         # Заново загружаем фон
@@ -427,7 +476,7 @@ class SimulationWidget(QGroupBox):
         
         # self.add_intersection_markings()
         self.add_crosswalks()
-        self.add_traffic_lights()
+        self.add_traffic_lights()  # This will recreate traffic lights
 
         # Сбрасываем статистику
         self.statistics.reset()
