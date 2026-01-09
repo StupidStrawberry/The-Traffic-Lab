@@ -73,9 +73,9 @@ class SimulationConfig:
     
     # Vehicle stop positions relative to crosswalks
     VEHICLE_STOP_DISTANCE_HORIZONTAL_RIGHT: int = 50  # Distance before horizontal crosswalk for right-moving vehicles
-    VEHICLE_STOP_DISTANCE_HORIZONTAL_LEFT: int = 50  # Distance before horizontal crosswalk for left-moving vehicles
+    VEHICLE_STOP_DISTANCE_HORIZONTAL_LEFT: int = 200  # Distance before horizontal crosswalk for left-moving vehicles
     VEHICLE_STOP_DISTANCE_VERTICAL_DOWN: int = 30  # Distance before vertical crosswalk for down-moving vehicles
-    VEHICLE_STOP_DISTANCE_VERTICAL_UP: int = 30  # Distance before vertical crosswalk for up-moving vehicles
+    VEHICLE_STOP_DISTANCE_VERTICAL_UP: int = 200  # Distance before vertical crosswalk for up-moving vehicles
     VEHICLE_EXTENDED_CROSSWALK_CHECK_HORIZONTAL: int = 30
     VEHICLE_EXTENDED_CROSSWALK_CHECK_VERTICAL: int = 40
 
@@ -107,21 +107,29 @@ class SimulationConfig:
     VEHICLE_LIGHT_HEIGHT: int = 5
     PEDESTRIAN_LIGHT_WIDTH: int = 5
     PEDESTRIAN_LIGHT_HEIGHT: int = 5
-    
+
     # Traffic light positions (you can adjust these)
     VEHICLE_LIGHT_HORIZONTAL_POS: tuple = field(default_factory=lambda: (310, 100))
     VEHICLE_LIGHT_VERTICAL_POS: tuple = field(default_factory=lambda: (400, 195))
     PEDESTRIAN_LIGHT_HORIZONTAL_POS: tuple = field(default_factory=lambda: (340, 80))
     PEDESTRIAN_LIGHT_VERTICAL_POS: tuple = field(default_factory=lambda: (420, 220))
-    
+
     # Traffic light actual positions (in scene)
-    TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_X: int = 300  # HORIZONTAL_CROSSWALK_X - 40
-    TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_Y: int = 310  # HORIZONTAL_LANE_Y
+    TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_X: int = 300  # Для движения вправо/восток
+    TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_Y: int = 310
     TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_ROTATION: int = 0
-    
-    TRAFFIC_LIGHT_VEHICLE_VERTICAL_X: int = 352  # VERTICAL_LANE_X - 70
-    TRAFFIC_LIGHT_VEHICLE_VERTICAL_Y: int = 215  # VERTICAL_CROSSWALK_Y + 20
+
+    TRAFFIC_LIGHT_VEHICLE_VERTICAL_X: int = 352  # Для движения вниз/юг
+    TRAFFIC_LIGHT_VEHICLE_VERTICAL_Y: int = 215
     TRAFFIC_LIGHT_VEHICLE_VERTICAL_ROTATION: int = 180
+
+    TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_X: int = 500  # Для движения вверх/север
+    TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_Y: int = 450
+    TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_ROTATION: int = 180
+
+    TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_OPPOSITE_X: int = 500  # Для движения влево/запад
+    TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_OPPOSITE_Y: int = 100
+    TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_OPPOSITE_ROTATION: int = 0
     
     TRAFFIC_LIGHT_PEDESTRIAN_HORIZONTAL_X: int = 320  # HORIZONTAL_CROSSWALK_X + CROSSWALK_WIDTH - 60
     TRAFFIC_LIGHT_PEDESTRIAN_HORIZONTAL_Y: int = 230  # HORIZONTAL_LANE_Y - 80

@@ -22,6 +22,10 @@ class VehicleItem(QGraphicsPixmapItem):
         self.waiting = False
         self.wait_time = 0
 
+        # True after the vehicle has fully passed at least one crosswalk on its lane.
+        # Used to implement: if a car has already passed a crosswalk, it ignores red and drives to the end.
+        self.passed_any_crosswalk = False
+
         # Set initial position
         self.setPos(x, y)
 
@@ -152,112 +156,149 @@ class VehicleItem(QGraphicsPixmapItem):
                     return True
         return False
 
+    def _is_green_for_vehicle(self, traffic_light: TrafficLightController) -> bool:
+        """True if the current traffic light allows this vehicle's direction to go."""
+        # Yellow is treated as stop for everyone
+        if traffic_light.vehicle_yellow:
+            return False
+
+        # TrafficLightController.vehicle_green means:
+        # - horizontal vehicles: green when True
+        # - vertical vehicles:   green when False
+        if self.vehicle.direction in ['horizontal_right', 'horizontal_left']:
+            return traffic_light.vehicle_green
+        return not traffic_light.vehicle_green
+
+    def _update_passed_any_crosswalk(self) -> None:
+        """Mark that the vehicle has passed at least one crosswalk (once passed, it ignores red)."""
+        if self.passed_any_crosswalk:
+            return
+
+        h_start = self.config.HORIZONTAL_CROSSWALK_X
+        h_end = h_start + self.config.CROSSWALK_WIDTH
+        v_start = self.config.VERTICAL_CROSSWALK_Y
+        v_end = v_start + self.config.CROSSWALK_WIDTH
+
+        if self.vehicle.direction == 'horizontal_right':
+            if self.x() > h_end:
+                self.passed_any_crosswalk = True
+        elif self.vehicle.direction == 'horizontal_left':
+            if self.x() + self.config.VEHICLE_WIDTH < h_start:
+                self.passed_any_crosswalk = True
+        elif self.vehicle.direction == 'vertical_down':
+            if self.y() > v_end:
+                self.passed_any_crosswalk = True
+        elif self.vehicle.direction == 'vertical_up':
+            if self.y() + self.config.VEHICLE_HEIGHT < v_start:
+                self.passed_any_crosswalk = True
+
+
     def _should_stop_for_crosswalk_horizontal(self, new_x: float, pedestrians: List['PedestrianItem'],
                                               traffic_light: TrafficLightController) -> bool:
+        """Decide whether a vehicle must stop for the horizontal crosswalk.
+
+        Требование:
+        - Если машина НЕ проехала ни одного перехода и на её полосе КРАСНЫЙ/ЖЁЛТЫЙ — остановиться.
+        - Если хотя бы один переход УЖЕ был пройден — игнорировать красный и ехать до конца.
+        """
+        self._update_passed_any_crosswalk()
+
         crosswalk_start = self.config.HORIZONTAL_CROSSWALK_X
         crosswalk_end = crosswalk_start + self.config.CROSSWALK_WIDTH
 
+        # If already passed at least one crosswalk, never stop for the light anymore
+        if self.passed_any_crosswalk:
+            return False
+
+        lane_green = self._is_green_for_vehicle(traffic_light)
+        has_pedestrians = any(p.crossing and p.pedestrian.direction == 'vertical' for p in pedestrians)
+
         if self.vehicle.direction == 'horizontal_right':
+            # x is left edge, front is x + VEHICLE_WIDTH
+            stop_x = crosswalk_start - self.config.VEHICLE_WIDTH - self.config.VEHICLE_STOP_DISTANCE_HORIZONTAL_RIGHT
+
             current_on_crosswalk = (self.x() < crosswalk_end and
                                     self.x() + self.config.VEHICLE_WIDTH > crosswalk_start)
-            
-            will_be_on_crosswalk = (new_x < crosswalk_end and
-                                    new_x + self.config.VEHICLE_WIDTH + self.config.VEHICLE_EXTENDED_CROSSWALK_CHECK_HORIZONTAL > crosswalk_start)
+            if current_on_crosswalk:
+                return False
 
-            has_pedestrians = any(p.crossing and p.pedestrian.direction == 'vertical'
-                                  for p in pedestrians)
-            
-            stop_position = crosswalk_start - self.config.VEHICLE_WIDTH - self.config.VEHICLE_STOP_DISTANCE_HORIZONTAL_RIGHT
+            # Stop at stop line when red/yellow
+            if (not lane_green) and new_x >= stop_x:
+                self.setX(stop_x)
+                return True
 
-            if will_be_on_crosswalk:
-                if current_on_crosswalk:
-                    return False
-                elif traffic_light.vehicle_green and has_pedestrians:
-                    return True
-                elif traffic_light.vehicle_green:
-                    return False
-                elif new_x > stop_position:
-                    return True
-                elif not traffic_light.vehicle_green or traffic_light.vehicle_yellow:
-                    return True
+            # On green, still yield to pedestrians already crossing
+            if lane_green and has_pedestrians and new_x >= stop_x:
+                self.setX(stop_x)
+                return True
+
         else:  # horizontal_left
+            # For left moving, front is x (left edge)
+            stop_x = crosswalk_end + self.config.VEHICLE_STOP_DISTANCE_HORIZONTAL_LEFT
+
             current_on_crosswalk = (self.x() > crosswalk_start - self.config.VEHICLE_WIDTH and
                                     self.x() < crosswalk_end)
-            
-            will_be_on_crosswalk = (new_x > crosswalk_start - self.config.VEHICLE_WIDTH - self.config.VEHICLE_EXTENDED_CROSSWALK_CHECK_HORIZONTAL and
-                                    new_x < crosswalk_end)
+            if current_on_crosswalk:
+                return False
 
-            has_pedestrians = any(p.crossing and p.pedestrian.direction == 'vertical'
-                                  for p in pedestrians)
-            
-            stop_position = crosswalk_end + self.config.VEHICLE_WIDTH + self.config.VEHICLE_STOP_DISTANCE_HORIZONTAL_LEFT
+            if (not lane_green) and new_x <= stop_x:
+                self.setX(stop_x)
+                return True
 
-            if will_be_on_crosswalk:
-                if current_on_crosswalk:
-                    return False
-                elif traffic_light.vehicle_green and has_pedestrians:
-                    return True
-                elif traffic_light.vehicle_green:
-                    return False
-                elif new_x < stop_position:
-                    return True
-                elif not traffic_light.vehicle_green or traffic_light.vehicle_yellow:
-                    return True
+            if lane_green and has_pedestrians and new_x <= stop_x:
+                self.setX(stop_x)
+                return True
+
         return False
 
     def _should_stop_for_crosswalk_vertical(self, new_y: float, pedestrians: List['PedestrianItem'],
                                             traffic_light: TrafficLightController) -> bool:
+        """Decide whether a vehicle must stop for the vertical crosswalk (same rule as horizontal)."""
+        self._update_passed_any_crosswalk()
+
         crosswalk_start = self.config.VERTICAL_CROSSWALK_Y
         crosswalk_end = crosswalk_start + self.config.CROSSWALK_WIDTH
 
+        if self.passed_any_crosswalk:
+            return False
+
+        lane_green = self._is_green_for_vehicle(traffic_light)
+        has_pedestrians = any(p.crossing and p.pedestrian.direction == 'horizontal' for p in pedestrians)
+
         if self.vehicle.direction == 'vertical_down':
+            # y is top edge, front is y + VEHICLE_HEIGHT
+            stop_y = crosswalk_start - self.config.VEHICLE_HEIGHT - self.config.VEHICLE_STOP_DISTANCE_VERTICAL_DOWN
+
             current_on_crosswalk = (self.y() < crosswalk_end and
                                     self.y() + self.config.VEHICLE_HEIGHT > crosswalk_start)
-            will_be_on_crosswalk = (new_y < crosswalk_end and
-                                    new_y + self.config.VEHICLE_HEIGHT + self.config.VEHICLE_EXTENDED_CROSSWALK_CHECK_VERTICAL > crosswalk_start)
+            if current_on_crosswalk:
+                return False
 
-            has_pedestrians = any(p.crossing and p.pedestrian.direction == 'horizontal'
-                                  for p in pedestrians)
+            if (not lane_green) and new_y >= stop_y:
+                self.setY(stop_y)
+                return True
 
-            stop_position = crosswalk_start - self.config.VEHICLE_HEIGHT - self.config.VEHICLE_STOP_DISTANCE_VERTICAL_DOWN
+            if lane_green and has_pedestrians and new_y >= stop_y:
+                self.setY(stop_y)
+                return True
 
-            if will_be_on_crosswalk:
-                if current_on_crosswalk:
-                    return False
-                if traffic_light.vehicle_yellow:
-                    return True
-                elif not traffic_light.vehicle_green and has_pedestrians:
-                    return True
-                elif not traffic_light.vehicle_green:
-                    return False
-                elif new_y > stop_position:
-                    return True
-                elif traffic_light.vehicle_green:
-                    return True
         else:  # vertical_up
+            # For up moving, front is y (top edge)
+            stop_y = crosswalk_end + self.config.VEHICLE_STOP_DISTANCE_VERTICAL_UP
+
             current_on_crosswalk = (self.y() > crosswalk_start - self.config.VEHICLE_HEIGHT and
                                     self.y() < crosswalk_end)
-            will_be_on_crosswalk = (new_y > crosswalk_start - self.config.VEHICLE_HEIGHT - self.config.VEHICLE_EXTENDED_CROSSWALK_CHECK_VERTICAL and
-                                    new_y < crosswalk_end)
+            if current_on_crosswalk:
+                return False
 
-            has_pedestrians = any(p.crossing and p.pedestrian.direction == 'horizontal'
-                                  for p in pedestrians)
+            if (not lane_green) and new_y <= stop_y:
+                self.setY(stop_y)
+                return True
 
-            stop_position = crosswalk_end + self.config.VEHICLE_HEIGHT + self.config.VEHICLE_STOP_DISTANCE_VERTICAL_UP
+            if lane_green and has_pedestrians and new_y <= stop_y:
+                self.setY(stop_y)
+                return True
 
-            if will_be_on_crosswalk:
-                if current_on_crosswalk:
-                    return False
-                if traffic_light.vehicle_yellow:
-                    return True
-                elif not traffic_light.vehicle_green and has_pedestrians:
-                    return True
-                elif not traffic_light.vehicle_green:
-                    return False
-                elif new_y < stop_position:
-                    return True
-                elif traffic_light.vehicle_green:
-                    return True
         return False
 
 

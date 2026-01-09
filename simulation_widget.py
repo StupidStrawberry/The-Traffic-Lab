@@ -38,14 +38,14 @@ class SimulationWidget(QGroupBox):
             self.background_pixmap = QPixmap("Bg main.png")
             if not self.background_pixmap.isNull():
                 scaled_pixmap = self.background_pixmap.scaled(
-                    self.config.SCENE_WIDTH, 
+                    self.config.SCENE_WIDTH,
                     self.config.SCENE_HEIGHT,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation
                 )
                 # Добавляем фон на сцену
                 background_item = self.scene.addPixmap(scaled_pixmap)
-                background_item.setZValue(-1) 
+                background_item.setZValue(-1)
                 background_x = 20
                 background_y = 55
                 background_item.setPos(background_x, background_y)
@@ -195,8 +195,8 @@ class SimulationWidget(QGroupBox):
         for light in self.traffic_lights:
             self.scene.removeItem(light)
         self.traffic_lights.clear()
-        
-        # Vehicle traffic light for horizontal road
+
+        # Vehicle traffic light for horizontal road (движение вправо/восток)
         vehicle_light_horizontal = TrafficLightItem(
             self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_X,
             self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_Y,
@@ -204,11 +204,13 @@ class SimulationWidget(QGroupBox):
             scale=self.config.TRAFFIC_LIGHT_VEHICLE_SCALE,
             rotation=self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_ROTATION
         )
+        vehicle_light_horizontal.role = 'vehicle'
+        vehicle_light_horizontal.axis = 'horizontal'
         vehicle_light_horizontal.setZValue(10)
         self.scene.addItem(vehicle_light_horizontal)
         self.traffic_lights.append(vehicle_light_horizontal)
-        
-        # Vehicle traffic light for vertical road
+
+        # Vehicle traffic light for vertical road (движение вниз/юг)
         vehicle_light_vertical = TrafficLightItem(
             self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_X,
             self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_Y,
@@ -216,10 +218,40 @@ class SimulationWidget(QGroupBox):
             scale=self.config.TRAFFIC_LIGHT_VEHICLE_SCALE,
             rotation=self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_ROTATION
         )
+        vehicle_light_vertical.role = 'vehicle'
+        vehicle_light_vertical.axis = 'vertical'
         vehicle_light_vertical.setZValue(10)
         self.scene.addItem(vehicle_light_vertical)
         self.traffic_lights.append(vehicle_light_vertical)
-        
+
+        # Vehicle traffic light for vertical road (движение вверх/север) - ПЕРВЫЙ ИЗ НОВЫХ (поменяли местами)
+        vehicle_light_vertical_opposite = TrafficLightItem(
+            self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_X,
+            self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_Y,
+            light_type='vehicle',
+            scale=self.config.TRAFFIC_LIGHT_VEHICLE_SCALE,
+            rotation=self.config.TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_ROTATION
+        )
+        vehicle_light_vertical_opposite.role = 'vehicle'
+        vehicle_light_vertical_opposite.axis = 'vertical'
+        vehicle_light_vertical_opposite.setZValue(10)
+        self.scene.addItem(vehicle_light_vertical_opposite)
+        self.traffic_lights.append(vehicle_light_vertical_opposite)
+
+        # Vehicle traffic light for horizontal road (движение влево/запад) - ВТОРОЙ ИЗ НОВЫХ (поменяли местами)
+        vehicle_light_horizontal_opposite = TrafficLightItem(
+            self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_OPPOSITE_X,
+            self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_OPPOSITE_Y,
+            light_type='vehicle',
+            scale=self.config.TRAFFIC_LIGHT_VEHICLE_SCALE,
+            rotation=self.config.TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_OPPOSITE_ROTATION
+        )
+        vehicle_light_horizontal_opposite.role = 'vehicle'
+        vehicle_light_horizontal_opposite.axis = 'horizontal'
+        vehicle_light_horizontal_opposite.setZValue(10)
+        self.scene.addItem(vehicle_light_horizontal_opposite)
+        self.traffic_lights.append(vehicle_light_horizontal_opposite)
+
         # Pedestrian traffic light for horizontal crossing (vertical pedestrians)
         pedestrian_light_horizontal = TrafficLightItem(
             self.config.TRAFFIC_LIGHT_PEDESTRIAN_HORIZONTAL_X,
@@ -228,10 +260,12 @@ class SimulationWidget(QGroupBox):
             scale=self.config.TRAFFIC_LIGHT_PEDESTRIAN_SCALE,
             rotation=self.config.TRAFFIC_LIGHT_PEDESTRIAN_HORIZONTAL_ROTATION
         )
-
+        pedestrian_light_horizontal.role = 'pedestrian'
+        pedestrian_light_horizontal.axis = 'horizontal'
+        pedestrian_light_horizontal.setZValue(10)
         self.scene.addItem(pedestrian_light_horizontal)
         self.traffic_lights.append(pedestrian_light_horizontal)
-        
+
         # Pedestrian traffic light for vertical crossing (horizontal pedestrians)
         pedestrian_light_vertical = TrafficLightItem(
             self.config.TRAFFIC_LIGHT_PEDESTRIAN_VERTICAL_X,
@@ -240,54 +274,44 @@ class SimulationWidget(QGroupBox):
             scale=self.config.TRAFFIC_LIGHT_PEDESTRIAN_SCALE,
             rotation=self.config.TRAFFIC_LIGHT_PEDESTRIAN_VERTICAL_ROTATION
         )
-        pedestrian_light_horizontal.setZValue(10)
+        pedestrian_light_vertical.role = 'pedestrian'
+        pedestrian_light_vertical.axis = 'vertical'
         pedestrian_light_vertical.setZValue(10)
-        pedestrian_light_vertical.update_state("green")
         self.scene.addItem(pedestrian_light_vertical)
         self.traffic_lights.append(pedestrian_light_vertical)
-        
+
         self.update_traffic_light_display()
 
 
     def update_traffic_light_display(self):
-        """Обновляет отображение светофоров"""
-        # Check if traffic_light_label exists
+        """Обновляет отображение светофоров (единая логика для всех светофоров)"""
         if not hasattr(self, 'traffic_light_label') or self.traffic_light_label is None:
             return
-        
-        print(self.traffic_light.vehicle_yellow, " | ", self.traffic_light.vehicle_green)
-        if self.traffic_light.vehicle_yellow:
-            # Yellow for all vehicles
-            print("SRABOTALO")
-            self._update_vehicle_lights('yellow', 'yellow')
-            self.traffic_light_label.setText("Светофор: Желтый для всех направлений")
-        elif not self.traffic_light.vehicle_green:
-            # Green for vertical vehicles
-            self._update_vehicle_lights('green', 'red')
-            self._update_pedestrian_lights('red', 'green')
-            self.traffic_light_label.setText("Светофор: Зеленый для вертикального транспорта")
-        else:
-            # Green for horizontal vehicles
-            self._update_vehicle_lights('red', 'green')
-            self._update_pedestrian_lights('green', 'red')
-            self.traffic_light_label.setText("Светофор: Зеленый для горизонтального транспорта")
-    
 
-    #ТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕДТУТ БРЕД
-    def _update_vehicle_lights(self, horizontal_state: str, vertical_state: str):
-        """Update vehicle traffic lights"""
-        light = self.traffic_lights[0]
-        light.update_state(vertical_state)
-        light = self.traffic_lights[1]
-        light.update_state(horizontal_state)
-    
-    def _update_pedestrian_lights(self, horizontal_state: str, vertical_state: str):
-        """Update pedestrian traffic lights"""
-        light = self.traffic_lights[2]
-        light.update_state(vertical_state)
-        light = self.traffic_lights[3]
-        light.update_state(horizontal_state)
-    
+        # Обновляем все элементы светофоров по их роли/оси
+        for light_item in self.traffic_lights:
+            role = getattr(light_item, 'role', None)
+            axis = getattr(light_item, 'axis', None)
+            if not axis or role not in ('vehicle', 'pedestrian'):
+                continue
+
+            if role == 'vehicle':
+                state = self.traffic_light.vehicle_state_for(axis)
+            else:
+                state = self.traffic_light.pedestrian_state_for(axis)
+
+            light_item.update_state(state)
+
+        # Текстовое описание фазы
+        if self.traffic_light.vehicle_yellow:
+            self.traffic_light_label.setText("Светофор: Желтый для всех направлений")
+        elif self.traffic_light.vehicle_green:
+            self.traffic_light_label.setText("Светофор: Зеленый для горизонтального транспорта")
+        else:
+            self.traffic_light_label.setText("Светофор: Зеленый для вертикального транспорта")
+
+
+
     def update_traffic_light(self):
         """Обновляет состояние светофора"""
         self.traffic_light.update()
@@ -477,10 +501,10 @@ class SimulationWidget(QGroupBox):
 
         # Очищаем сцену - это удалит все графические элементы
         self.scene.clear()
-        
+
         # Заново загружаем фон
         self.load_background_image()
-        
+
         # self.add_intersection_markings()
         self.add_crosswalks()
         self.add_traffic_lights()  # This will recreate traffic lights
