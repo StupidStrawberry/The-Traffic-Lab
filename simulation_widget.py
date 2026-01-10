@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QGraphicsView, QGraphicsScene, QGraphicsRectItem
 )
+from PyQt6.QtGui import QTransform
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtGui import QBrush, QColor, QPen, QPainter, QPixmap
 import random
@@ -279,6 +280,24 @@ class SimulationWidget(QGroupBox):
         pedestrian_light_vertical.setZValue(10)
         self.scene.addItem(pedestrian_light_vertical)
         self.traffic_lights.append(pedestrian_light_vertical)
+        pedestrian_light_horizontal_2 = TrafficLightItem(486, 373, light_type='pedestrian',
+                                                         scale=self.config.TRAFFIC_LIGHT_PEDESTRIAN_SCALE,
+                                                         rotation=self.config.TRAFFIC_LIGHT_PEDESTRIAN_HORIZONTAL_ROTATION)
+        pedestrian_light_horizontal_2.setTransform(QTransform().scale(-1, 1),
+                                                   True)  # переворот по горизонтали (зеркально)
+        pedestrian_light_horizontal_2.role = 'pedestrian'
+        pedestrian_light_horizontal_2.axis = 'horizontal'
+        pedestrian_light_horizontal_2.setZValue(10)
+        self.scene.addItem(pedestrian_light_horizontal_2)
+        self.traffic_lights.append(pedestrian_light_horizontal_2)
+        pedestrian_light_vertical_2 = TrafficLightItem(520, 193, light_type='pedestrian',
+                                                       scale=self.config.TRAFFIC_LIGHT_PEDESTRIAN_SCALE,
+                                                       rotation=self.config.TRAFFIC_LIGHT_PEDESTRIAN_VERTICAL_ROTATION)
+        pedestrian_light_vertical_2.role = 'pedestrian'
+        pedestrian_light_vertical_2.axis = 'vertical'
+        pedestrian_light_vertical_2.setZValue(10)
+        self.scene.addItem(pedestrian_light_vertical_2)
+        self.traffic_lights.append(pedestrian_light_vertical_2)
 
         self.update_traffic_light_display()
 
