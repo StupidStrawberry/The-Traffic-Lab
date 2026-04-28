@@ -19,12 +19,26 @@ class SimulationConfig:
     PEDESTRIAN_GREEN_TIME: int = 30
 
     # Геометрия перекрестка
+    # Геометрия перекрестка
     SCENE_WIDTH: int = 800
     SCENE_HEIGHT: int = 600
     HORIZONTAL_LANE_Y: int = 305
     VERTICAL_LANE_X: int = 422
     CROSSWALK_WIDTH: int = 20
     CROSSWALK_LENGTH: int = 60
+
+    # Позиция декоративной фоновой полосы 
+    BACKGROUND_STRIPE_0_X: int = 0
+    BACKGROUND_STRIPE_0_Y: int = 0
+
+    BACKGROUND_STRIPE_1_X: int = 0
+    BACKGROUND_STRIPE_1_Y: int = 50
+
+    BACKGROUND_STRIPE_2_X: int = 100
+    BACKGROUND_STRIPE_2_Y: int = 0
+
+    BACKGROUND_STRIPE_3_X: int = 150
+    BACKGROUND_STRIPE_3_Y: int = 50
 
     # Разделение встречных потоков
     HORIZONTAL_ONCOMING_TRAFFIC_OFFSET: int = -15

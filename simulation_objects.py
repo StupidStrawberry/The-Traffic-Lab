@@ -276,8 +276,8 @@ class VehicleItem(QGraphicsPixmapItem):
 
 
 class PedestrianItem(QGraphicsPixmapItem):
-    def __init__(self, pedestrian: Pedestrian, x: float, y: float, config):
-        pixmap = self._create_pedestrian_pixmap(pedestrian, config)
+    def __init__(self, pedestrian: Pedestrian, x: float, y: float):
+        pixmap = self._create_pedestrian_pixmap(pedestrian)
         super().__init__(pixmap)
 
         self.pedestrian = pedestrian
@@ -310,7 +310,7 @@ class PedestrianItem(QGraphicsPixmapItem):
         else:
             self.speed = max(0.03, float(self.speed))
 
-    def _create_pedestrian_pixmap(self, pedestrian: Pedestrian, config):
+    def _create_pedestrian_pixmap(self, pedestrian: Pedestrian):
         filename = 'pedestrian.png'
         if os.path.exists(filename):
             pixmap = QPixmap(filename)
@@ -322,9 +322,9 @@ class PedestrianItem(QGraphicsPixmapItem):
                     Qt.TransformationMode.SmoothTransformation,
                 )
 
-        return self._create_colored_pedestrian_pixmap(config)
+        return self._create_colored_pedestrian_pixmap()
 
-    def _create_colored_pedestrian_pixmap(self, config):
+    def _create_colored_pedestrian_pixmap(self):
         pixmap = QPixmap(config.PEDESTRIAN_WIDTH, config.PEDESTRIAN_HEIGHT)
         pixmap.fill(Qt.GlobalColor.transparent)
 
