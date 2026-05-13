@@ -1,14 +1,7 @@
-import os
-
+from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsItem, QGraphicsPixmapItem, QGraphicsSimpleTextItem
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import (
-    QGraphicsEllipseItem,
-    QGraphicsItem,
-    QGraphicsRectItem,
-    QGraphicsPixmapItem,
-    QGraphicsSimpleTextItem,
-)
+import os
 
 
 class TrafficLightController:
@@ -21,8 +14,7 @@ class TrafficLightController:
 
     def update(self) -> None:
         self.timer += 1
-        cycle = max(1, int(self.config.TRAFFIC_LIGHT_CYCLE))
-        if self.timer >= cycle:
+        if self.timer >= self.config.TRAFFIC_LIGHT_CYCLE:
             self.timer = 0
 
         if self.timer < self.config.VEHICLE_GREEN_TIME:
@@ -41,21 +33,19 @@ class TrafficLightController:
     def vehicle_state_for(self, axis: str) -> str:
         if self.vehicle_yellow:
             return 'yellow'
-
         if axis == 'horizontal':
             return 'green' if self.vehicle_green else 'red'
         if axis == 'vertical':
-            return 'green' if not self.vehicle_green else 'red'
+            return 'green' if (not self.vehicle_green) else 'red'
         raise ValueError(f'Unknown axis: {axis}')
 
     def pedestrian_state_for(self, axis: str) -> str:
         if self.vehicle_yellow:
             return 'red'
-
         if axis == 'vertical':
             return 'green' if self.pedestrian_green else 'red'
         if axis == 'horizontal':
-            return 'green' if not self.pedestrian_green else 'red'
+            return 'green' if (not self.pedestrian_green) else 'red'
         raise ValueError(f'Unknown axis: {axis}')
 
 
@@ -69,23 +59,27 @@ class TrafficLightItem(QGraphicsPixmapItem):
         rotation: float = 0.0,
         name: str | None = None,
         on_changed=None,
+        on_selected=None,
     ):
         super().__init__()
-        self.name = name or f'{light_type}_light'
-        self.config_key = self.name
         self.light_type = light_type
         self.current_state = 'red'
+        self.name = name or light_type
+        self.config_key = self.name
+        self.role = None
+        self.axis = None
+        self.mirrored = False
         self.supports_rotation = True
         self.supports_scale = True
         self._editor_enabled = False
         self.on_changed = on_changed
+        self.on_selected = on_selected
 
         self.load_image()
         self.setPos(x, y)
         self.setScale(scale)
         self.setRotation(rotation)
-        self.setTransformOriginPoint(self.boundingRect().center())
-        self.setZValue(25)
+        self.setZValue(10)
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
@@ -103,7 +97,6 @@ class TrafficLightItem(QGraphicsPixmapItem):
                 'green': 'pedestrian_green.png',
             },
         }
-
         filename = image_files.get(self.light_type, {}).get(self.current_state, '')
         if filename and os.path.exists(filename):
             pixmap = QPixmap(filename)
@@ -111,7 +104,6 @@ class TrafficLightItem(QGraphicsPixmapItem):
                 self.setPixmap(pixmap)
                 self.setTransformOriginPoint(self.boundingRect().center())
                 return
-
         self._create_fallback_pixmap()
         self.setTransformOriginPoint(self.boundingRect().center())
 
@@ -120,41 +112,45 @@ class TrafficLightItem(QGraphicsPixmapItem):
             width, height = 40, 120
             pixmap = QPixmap(width, height)
             pixmap.fill(Qt.GlobalColor.transparent)
-
             painter = QPainter(pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setBrush(QBrush(QColor(50, 50, 50)))
             painter.setPen(QPen(Qt.GlobalColor.black, 2))
             painter.drawRoundedRect(0, 0, width, height, 5, 5)
 
-            active = {
+            colors = {
                 'red': QColor(255, 0, 0),
                 'yellow': QColor(255, 255, 0),
                 'green': QColor(0, 255, 0),
             }
-            inactive = QColor(55, 55, 55)
 
-            for state, top in [('red', 10), ('yellow', 45), ('green', 80)]:
-                painter.setBrush(QBrush(active[state] if self.current_state == state else inactive))
-                painter.drawEllipse(width // 2 - 15, top, 30, 30)
+            top_color = colors['red'] if self.current_state == 'red' else QColor(50, 50, 50)
+            mid_color = colors['yellow'] if self.current_state == 'yellow' else QColor(50, 50, 50)
+            low_color = colors['green'] if self.current_state == 'green' else QColor(50, 50, 50)
 
+            painter.setBrush(QBrush(top_color))
+            painter.drawEllipse(width // 2 - 15, 10, 30, 30)
+            painter.setBrush(QBrush(mid_color))
+            painter.drawEllipse(width // 2 - 15, 45, 30, 30)
+            painter.setBrush(QBrush(low_color))
+            painter.drawEllipse(width // 2 - 15, 80, 30, 30)
             painter.end()
         else:
             width, height = 60, 60
             pixmap = QPixmap(width, height)
             pixmap.fill(Qt.GlobalColor.transparent)
-
             painter = QPainter(pixmap)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setBrush(QBrush(QColor(50, 50, 50)))
             painter.setPen(QPen(Qt.GlobalColor.black, 2))
             painter.drawRoundedRect(0, 0, width, height, 5, 5)
-
+            painter.setPen(QPen(Qt.GlobalColor.white, 1))
             if self.current_state == 'green':
-                painter.setBrush(QBrush(QColor(0, 220, 0)))
+                painter.setBrush(QBrush(QColor(0, 200, 0)))
+                painter.drawEllipse(15, 12, 30, 30)
             else:
                 painter.setBrush(QBrush(QColor(220, 0, 0)))
-            painter.drawEllipse(15, 12, 30, 30)
+                painter.drawEllipse(15, 12, 30, 30)
             painter.end()
 
         self.setPixmap(pixmap)
@@ -171,6 +167,7 @@ class TrafficLightItem(QGraphicsPixmapItem):
             return
         self.current_state = state
         self.load_image()
+        self.setTransformOriginPoint(self.boundingRect().center())
 
     def move_to(self, x: float, y: float):
         self.setPos(x, y)
@@ -191,75 +188,9 @@ class TrafficLightItem(QGraphicsPixmapItem):
 
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             self._emit_changed()
-        return result
-
-    def _emit_changed(self):
-        if self.on_changed is not None:
-            self.on_changed(self)
-
-
-class EditableCrosswalkItem(QGraphicsRectItem):
-    """Прямоугольный маркер пешеходного перехода для режима редактирования."""
-
-    def __init__(self, x: float, y: float, width: float, height: float, name: str, label: str, color: QColor, on_changed=None):
-        super().__init__(0, 0, width, height)
-        self.name = name
-        self.config_key = name
-        self.label = label
-        self.supports_rotation = False
-        self.supports_scale = False
-        self._editor_enabled = False
-        self.on_changed = on_changed
-        self._base_color = QColor(color)
-        self._base_color.setAlpha(90)
-        self._selected_color = QColor(255, 220, 0, 130)
-
-        self.setPen(QPen(color, 2, Qt.PenStyle.DashLine))
-        self.setBrush(QBrush(self._base_color))
-        self.setPos(x, y)
-        self.setZValue(20)
-        self.setVisible(False)
-
-        self.text_item = QGraphicsSimpleTextItem(label, self)
-        self.text_item.setBrush(QBrush(Qt.GlobalColor.white))
-        self.text_item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
-        self.text_item.setPos(4, 4)
-
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
-
-    def set_editor_enabled(self, enabled: bool):
-        self._editor_enabled = enabled
-        self.setVisible(enabled)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, enabled)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, enabled)
-        if not enabled and self.isSelected():
-            self.setSelected(False)
-        self._update_style()
-
-    def move_to(self, x: float, y: float):
-        self.setPos(x, y)
-        self._emit_changed()
-
-    def update_geometry(self, x: float, y: float, width: float, height: float):
-        self.setRect(0, 0, width, height)
-        self.setPos(x, y)
-
-    def _update_style(self):
-        self.setBrush(QBrush(self._selected_color if self.isSelected() else self._base_color))
-
-    def itemChange(self, change, value):
-        result = super().itemChange(change, value)
-
-        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
-            self._update_style()
-
-        if not self._editor_enabled:
-            return result
-
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            self._emit_changed()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged and bool(value):
+            if self.on_selected is not None:
+                self.on_selected(self)
         return result
 
     def _emit_changed(self):
@@ -268,7 +199,7 @@ class EditableCrosswalkItem(QGraphicsRectItem):
 
 
 class EditableSpawnPointItem(QGraphicsEllipseItem):
-    def __init__(self, x: float, y: float, name: str, label: str, color: QColor, on_changed=None):
+    def __init__(self, x: float, y: float, name: str, label: str, color: QColor, on_changed=None, on_selected=None):
         size = 18
         super().__init__(-size / 2, -size / 2, size, size)
         self.name = name
@@ -278,6 +209,7 @@ class EditableSpawnPointItem(QGraphicsEllipseItem):
         self.supports_scale = False
         self._editor_enabled = False
         self.on_changed = on_changed
+        self.on_selected = on_selected
         self._base_color = color
         self._selected_color = QColor(255, 220, 0)
 
@@ -315,15 +247,15 @@ class EditableSpawnPointItem(QGraphicsEllipseItem):
 
     def itemChange(self, change, value):
         result = super().itemChange(change, value)
-
-        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
-            self._update_style()
-
         if not self._editor_enabled:
             return result
 
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             self._emit_changed()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self._update_style()
+            if bool(value) and self.on_selected is not None:
+                self.on_selected(self)
         return result
 
     def _emit_changed(self):

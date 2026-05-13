@@ -1,3 +1,4 @@
+import math
 import os
 import random
 from typing import List
@@ -11,6 +12,15 @@ from traffic_light import TrafficLightController
 
 
 class VehicleItem(QGraphicsPixmapItem):
+    """Графический объект машины с поддержкой редактируемой точки правого поворота."""
+
+    RIGHT_TURN_TARGETS = {
+        'horizontal_right': 'vertical_down',
+        'horizontal_left': 'vertical_up',
+        'vertical_down': 'horizontal_left',
+        'vertical_up': 'horizontal_right',
+    }
+
     def __init__(self, vehicle: Vehicle, x: float, y: float, config):
         pixmap = self._create_vehicle_pixmap(vehicle, config)
         super().__init__(pixmap)
@@ -21,6 +31,16 @@ class VehicleItem(QGraphicsPixmapItem):
         self.waiting = False
         self.wait_time = 0
         self.passed_any_crosswalk = False
+
+        self.turning = False
+        self.has_turned = False
+        self._turn_target_dir = None
+        self._turn_cx = 0.0
+        self._turn_cy = 0.0
+        self._turn_r = float(getattr(self.config, 'TURN_RADIUS', 40))
+        self._turn_theta = 0.0
+        self._turn_theta_end = 0.0
+        self.will_turn = random.random() < float(getattr(self.config, 'TURN_PROBABILITY', 0.0))
 
         self.setPos(x, y)
         self.refresh_from_config(refresh_speed=False)
@@ -34,6 +54,15 @@ class VehicleItem(QGraphicsPixmapItem):
 
     def refresh_from_config(self, refresh_speed: bool = False):
         self.setPixmap(self._create_vehicle_pixmap(self.vehicle, self.config))
+        self._apply_rotation_for_direction()
+        self._turn_r = float(getattr(self.config, 'TURN_RADIUS', 40))
+
+        if refresh_speed:
+            self.speed = self.sample_speed()
+        else:
+            self.speed = max(0.05, float(self.speed))
+
+    def _apply_rotation_for_direction(self):
         if self.vehicle.direction == 'horizontal_right':
             self.setRotation(self.config.VEHICLE_ROTATION_RIGHT)
         elif self.vehicle.direction == 'horizontal_left':
@@ -42,11 +71,6 @@ class VehicleItem(QGraphicsPixmapItem):
             self.setRotation(self.config.VEHICLE_ROTATION_DOWN)
         elif self.vehicle.direction == 'vertical_up':
             self.setRotation(self.config.VEHICLE_ROTATION_UP)
-
-        if refresh_speed:
-            self.speed = self.sample_speed()
-        else:
-            self.speed = max(0.05, float(self.speed))
 
     def _create_vehicle_pixmap(self, vehicle: Vehicle, config):
         image_files = {
@@ -91,12 +115,182 @@ class VehicleItem(QGraphicsPixmapItem):
         painter.end()
         return pixmap
 
+    def _turn_point_for_direction(self):
+        mapping = {
+            'horizontal_right': (
+                float(getattr(self.config, 'TURN_POINT_HORIZONTAL_RIGHT_X', self.config.VERTICAL_LANE_X)),
+                float(getattr(self.config, 'TURN_POINT_HORIZONTAL_RIGHT_Y', self.y())),
+            ),
+            'horizontal_left': (
+                float(getattr(self.config, 'TURN_POINT_HORIZONTAL_LEFT_X', self.config.VERTICAL_LANE_X)),
+                float(getattr(self.config, 'TURN_POINT_HORIZONTAL_LEFT_Y', self.y())),
+            ),
+            'vertical_down': (
+                float(getattr(self.config, 'TURN_POINT_VERTICAL_DOWN_X', self.x())),
+                float(getattr(self.config, 'TURN_POINT_VERTICAL_DOWN_Y', self.config.HORIZONTAL_LANE_Y)),
+            ),
+            'vertical_up': (
+                float(getattr(self.config, 'TURN_POINT_VERTICAL_UP_X', self.x())),
+                float(getattr(self.config, 'TURN_POINT_VERTICAL_UP_Y', self.config.HORIZONTAL_LANE_Y)),
+            ),
+        }
+        return mapping.get(self.vehicle.direction)
+
+    def _turn_reached(self, new_x: float, new_y: float) -> bool:
+        point = self._turn_point_for_direction()
+        if point is None:
+            return False
+        turn_x, turn_y = point
+
+        if self.vehicle.direction == 'horizontal_right':
+            return new_x >= turn_x
+        if self.vehicle.direction == 'horizontal_left':
+            return new_x <= turn_x
+        if self.vehicle.direction == 'vertical_down':
+            return new_y >= turn_y
+        if self.vehicle.direction == 'vertical_up':
+            return new_y <= turn_y
+        return False
+
+    def _turn_wait_line_reached(self, new_x: float, new_y: float) -> bool:
+        point = self._turn_point_for_direction()
+        if point is None:
+            return False
+        turn_x, turn_y = point
+        wait_distance = max(0.0, float(getattr(self.config, 'TURN_WAIT_DISTANCE', 12)))
+
+        if self.vehicle.direction == 'horizontal_right':
+            return new_x >= turn_x - wait_distance
+        if self.vehicle.direction == 'horizontal_left':
+            return new_x <= turn_x + wait_distance
+        if self.vehicle.direction == 'vertical_down':
+            return new_y >= turn_y - wait_distance
+        if self.vehicle.direction == 'vertical_up':
+            return new_y <= turn_y + wait_distance
+        return False
+
+    def _turn_slot_is_busy(self, vehicles: List['VehicleItem']) -> bool:
+        """Не пускаем следующую машину в дугу, пока предыдущая не закончила поворот."""
+        for other in vehicles:
+            if other is self:
+                continue
+            if getattr(other, 'turning', False):
+                return True
+        return False
+
+    def _hold_before_turn(self):
+        point = self._turn_point_for_direction()
+        if point is None:
+            return
+        turn_x, turn_y = point
+        wait_distance = max(0.0, float(getattr(self.config, 'TURN_WAIT_DISTANCE', 12)))
+
+        if self.vehicle.direction == 'horizontal_right':
+            self.setPos(turn_x - wait_distance, turn_y)
+        elif self.vehicle.direction == 'horizontal_left':
+            self.setPos(turn_x + wait_distance, turn_y)
+        elif self.vehicle.direction == 'vertical_down':
+            self.setPos(turn_x, turn_y - wait_distance)
+        elif self.vehicle.direction == 'vertical_up':
+            self.setPos(turn_x, turn_y + wait_distance)
+
+    def _apply_rotation_from_vector(self, dx: float, dy: float) -> None:
+        if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+            return
+        angle = math.degrees(math.atan2(dy, dx))
+        if angle < 0:
+            angle += 360.0
+        self.setRotation(angle)
+
+    def _start_right_turn(self) -> None:
+        target_dir = self.RIGHT_TURN_TARGETS.get(self.vehicle.direction)
+        point = self._turn_point_for_direction()
+        if target_dir is None or point is None:
+            return
+
+        start_x, start_y = point
+        r = max(1.0, float(getattr(self.config, 'TURN_RADIUS', 40)))
+        self._turn_r = r
+        self._turn_target_dir = target_dir
+        self.turning = True
+        self.has_turned = True
+        self.passed_any_crosswalk = True
+
+        if self.vehicle.direction == 'horizontal_right' and target_dir == 'vertical_down':
+            self._turn_cx = start_x
+            self._turn_cy = start_y + r
+            self._turn_theta = -math.pi / 2
+            self._turn_theta_end = 0.0
+        elif self.vehicle.direction == 'horizontal_left' and target_dir == 'vertical_up':
+            self._turn_cx = start_x
+            self._turn_cy = start_y - r
+            self._turn_theta = math.pi / 2
+            self._turn_theta_end = math.pi
+        elif self.vehicle.direction == 'vertical_down' and target_dir == 'horizontal_left':
+            self._turn_cx = start_x - r
+            self._turn_cy = start_y
+            self._turn_theta = 0.0
+            self._turn_theta_end = math.pi / 2
+        elif self.vehicle.direction == 'vertical_up' and target_dir == 'horizontal_right':
+            self._turn_cx = start_x + r
+            self._turn_cy = start_y
+            self._turn_theta = math.pi
+            self._turn_theta_end = 3 * math.pi / 2
+        else:
+            self.turning = False
+            self._turn_target_dir = None
+            return
+
+        self.setPos(start_x, start_y)
+
+    def _update_turn(self) -> None:
+        r = max(1.0, float(self._turn_r))
+        dtheta = max(0.002, float(self.speed) / r)
+        self._turn_theta = min(self._turn_theta + dtheta, self._turn_theta_end)
+
+        x = self._turn_cx + r * math.cos(self._turn_theta)
+        y = self._turn_cy + r * math.sin(self._turn_theta)
+        self.setPos(x, y)
+
+        dx = -math.sin(self._turn_theta)
+        dy = math.cos(self._turn_theta)
+        self._apply_rotation_from_vector(dx, dy)
+
+        if abs(self._turn_theta - self._turn_theta_end) < 1e-6:
+            if self._turn_target_dir:
+                self.vehicle.direction = self._turn_target_dir
+            self.turning = False
+            self._turn_target_dir = None
+            self._apply_rotation_for_direction()
+
+    def _handle_turn_if_needed(self, new_x: float, new_y: float, vehicles: List['VehicleItem']) -> bool:
+        if not self.will_turn or self.has_turned or self.turning:
+            return False
+
+        if self._turn_slot_is_busy(vehicles):
+            if self._turn_wait_line_reached(new_x, new_y):
+                self._hold_before_turn()
+                return True
+            return False
+
+        if not self._turn_reached(new_x, new_y):
+            return False
+
+        self._start_right_turn()
+        if self.turning:
+            self._update_turn()
+        return True
+
     def move(
         self,
         vehicles: List['VehicleItem'],
         pedestrians: List['PedestrianItem'],
         traffic_light: TrafficLightController,
     ) -> bool:
+        if self.turning:
+            self._update_turn()
+            return False
+
         if self.waiting:
             self.wait_time -= 1
             if self.wait_time <= 0:
@@ -116,6 +310,8 @@ class VehicleItem(QGraphicsPixmapItem):
                 traffic_light,
             ):
                 return False
+            if self._handle_turn_if_needed(new_x, self.y(), vehicles):
+                return False
             self.setX(new_x)
             return new_x > self.config.SCENE_WIDTH
 
@@ -125,6 +321,8 @@ class VehicleItem(QGraphicsPixmapItem):
             pedestrians,
             traffic_light,
         ):
+            return False
+        if self._handle_turn_if_needed(new_x, self.y(), vehicles):
             return False
         self.setX(new_x)
         return new_x < -self.config.VEHICLE_WIDTH
@@ -138,6 +336,8 @@ class VehicleItem(QGraphicsPixmapItem):
                 traffic_light,
             ):
                 return False
+            if self._handle_turn_if_needed(self.x(), new_y, vehicles):
+                return False
             self.setY(new_y)
             return new_y > self.config.SCENE_HEIGHT
 
@@ -148,12 +348,16 @@ class VehicleItem(QGraphicsPixmapItem):
             traffic_light,
         ):
             return False
+        if self._handle_turn_if_needed(self.x(), new_y, vehicles):
+            return False
         self.setY(new_y)
         return new_y < -self.config.VEHICLE_WIDTH
 
     def _has_collision(self, vehicles: List['VehicleItem'], new_x: float, new_y: float) -> bool:
         for other in vehicles:
             if other != self:
+                if getattr(other, 'turning', False):
+                    continue
                 if (
                     other.vehicle.direction == self.vehicle.direction
                     and abs(other.x() - new_x) < self.config.MIN_DISTANCE_BETWEEN_VEHICLES
@@ -207,7 +411,10 @@ class VehicleItem(QGraphicsPixmapItem):
         if self.vehicle.direction == 'horizontal_right':
             stop_x = crosswalk_start - self.config.VEHICLE_WIDTH - self.config.VEHICLE_STOP_DISTANCE_HORIZONTAL_RIGHT
             current_on_crosswalk = self.x() < crosswalk_end and self.x() + self.config.VEHICLE_WIDTH > crosswalk_start
-            if current_on_crosswalk:
+            already_past_stop_line = self.x() > stop_x + 0.01
+            if current_on_crosswalk or already_past_stop_line:
+                # Машина, которая уже физически пересекла стоп-линию, доезжает дальше.
+                # Но машина, стоящая ровно на stop_x на красный/жёлтый, должна продолжать ждать.
                 return False
 
             if not lane_green and new_x >= stop_x:
@@ -220,7 +427,8 @@ class VehicleItem(QGraphicsPixmapItem):
         else:
             stop_x = crosswalk_end + self.config.VEHICLE_STOP_DISTANCE_HORIZONTAL_LEFT
             current_on_crosswalk = self.x() > crosswalk_start - self.config.VEHICLE_WIDTH and self.x() < crosswalk_end
-            if current_on_crosswalk:
+            already_past_stop_line = self.x() < stop_x - 0.01
+            if current_on_crosswalk or already_past_stop_line:
                 return False
 
             if not lane_green and new_x <= stop_x:
@@ -248,7 +456,8 @@ class VehicleItem(QGraphicsPixmapItem):
         if self.vehicle.direction == 'vertical_down':
             stop_y = crosswalk_start - self.config.VEHICLE_HEIGHT - self.config.VEHICLE_STOP_DISTANCE_VERTICAL_DOWN
             current_on_crosswalk = self.y() < crosswalk_end and self.y() + self.config.VEHICLE_HEIGHT > crosswalk_start
-            if current_on_crosswalk:
+            already_past_stop_line = self.y() > stop_y + 0.01
+            if current_on_crosswalk or already_past_stop_line:
                 return False
 
             if not lane_green and new_y >= stop_y:
@@ -261,7 +470,8 @@ class VehicleItem(QGraphicsPixmapItem):
         else:
             stop_y = crosswalk_end + self.config.VEHICLE_STOP_DISTANCE_VERTICAL_UP
             current_on_crosswalk = self.y() > crosswalk_start - self.config.VEHICLE_HEIGHT and self.y() < crosswalk_end
-            if current_on_crosswalk:
+            already_past_stop_line = self.y() < stop_y - 0.01
+            if current_on_crosswalk or already_past_stop_line:
                 return False
 
             if not lane_green and new_y <= stop_y:
@@ -276,8 +486,8 @@ class VehicleItem(QGraphicsPixmapItem):
 
 
 class PedestrianItem(QGraphicsPixmapItem):
-    def __init__(self, pedestrian: Pedestrian, x: float, y: float):
-        pixmap = self._create_pedestrian_pixmap(pedestrian)
+    def __init__(self, pedestrian: Pedestrian, x: float, y: float, config):
+        pixmap = self._create_pedestrian_pixmap(pedestrian, config)
         super().__init__(pixmap)
 
         self.pedestrian = pedestrian
@@ -310,7 +520,7 @@ class PedestrianItem(QGraphicsPixmapItem):
         else:
             self.speed = max(0.03, float(self.speed))
 
-    def _create_pedestrian_pixmap(self, pedestrian: Pedestrian):
+    def _create_pedestrian_pixmap(self, pedestrian: Pedestrian, config):
         filename = 'pedestrian.png'
         if os.path.exists(filename):
             pixmap = QPixmap(filename)
@@ -322,9 +532,9 @@ class PedestrianItem(QGraphicsPixmapItem):
                     Qt.TransformationMode.SmoothTransformation,
                 )
 
-        return self._create_colored_pedestrian_pixmap()
+        return self._create_colored_pedestrian_pixmap(config)
 
-    def _create_colored_pedestrian_pixmap(self):
+    def _create_colored_pedestrian_pixmap(self, config):
         pixmap = QPixmap(config.PEDESTRIAN_WIDTH, config.PEDESTRIAN_HEIGHT)
         pixmap.fill(Qt.GlobalColor.transparent)
 

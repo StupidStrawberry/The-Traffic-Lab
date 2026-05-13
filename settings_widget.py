@@ -104,9 +104,9 @@ class SettingsWidget(QGroupBox):
         layout.addWidget(self.edit_mode_checkbox)
 
         hint = QLabel(
-            'Здесь можно выбирать светофоры и точки старта машин, перетаскивать их мышью по сцене '
-            'и точно править координаты. Список объектов больше не перестраивается при каждом клике, '
-            'поэтому selection flow остаётся стабильным.'
+            'Здесь можно выбирать светофоры, точки старта машин, точки поворота, пешеходные переходы '
+            'и точки появления пешеходов. Перетаскивай объект мышью по сцене или точно правь координаты. '
+            'Кнопка “Сохранить в config.py” записывает текущие изменения в файл даже во время работы симуляции.'
         )
         hint.setWordWrap(True)
         layout.addWidget(hint)
@@ -160,6 +160,14 @@ class SettingsWidget(QGroupBox):
         self.copy_button = QPushButton('Копировать в буфер')
         self.copy_button.clicked.connect(self.copy_config_text)
         layout.addWidget(self.copy_button)
+
+        self.save_button = QPushButton('Сохранить в config.py')
+        self.save_button.clicked.connect(self.save_config_file)
+        layout.addWidget(self.save_button)
+
+        self.save_status_label = QLabel('')
+        self.save_status_label.setWordWrap(True)
+        layout.addWidget(self.save_status_label)
 
         self.config_preview = QPlainTextEdit()
         self.config_preview.setPlaceholderText('Здесь появятся готовые строки для вставки в config.py')
@@ -275,6 +283,8 @@ class SettingsWidget(QGroupBox):
         self.scale_spin.setEnabled(enabled and has_selection and allow_scale)
         self.generate_button.setEnabled(True)
         self.copy_button.setEnabled(True)
+        if hasattr(self, 'save_button'):
+            self.save_button.setEnabled(True)
 
     def get_current_editor_key(self):
         current_item = self.object_list.currentItem()
@@ -409,6 +419,16 @@ class SettingsWidget(QGroupBox):
 
     def copy_config_text(self):
         QApplication.clipboard().setText(self.config_preview.toPlainText())
+
+    def save_config_file(self):
+        if self.simulation_widget is None:
+            return
+        try:
+            changed, path = self.simulation_widget.save_config_to_file()
+            self.generate_config_text()
+            self.save_status_label.setText(f'Сохранено в {path}. Обновлено строк: {changed}')
+        except Exception as exc:
+            self.save_status_label.setText(f'Не удалось сохранить config.py: {exc}')
 
     def add_car_to_simulation(self, direction='horizontal_right'):
         if self.simulation_widget:

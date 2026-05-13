@@ -13,12 +13,11 @@ class SimulationConfig:
     ANALYSIS_UPDATE_INTERVAL: int = 1000
 
     # Параметры светофора
-    TRAFFIC_LIGHT_CYCLE: int = 90
+    TRAFFIC_LIGHT_CYCLE: int = 80
     VEHICLE_GREEN_TIME: int = 40
     VEHICLE_YELLOW_TIME: int = 10
     PEDESTRIAN_GREEN_TIME: int = 30
 
-    # Геометрия перекрестка
     # Геометрия перекрестка
     SCENE_WIDTH: int = 800
     SCENE_HEIGHT: int = 600
@@ -26,19 +25,6 @@ class SimulationConfig:
     VERTICAL_LANE_X: int = 422
     CROSSWALK_WIDTH: int = 20
     CROSSWALK_LENGTH: int = 60
-
-    # Позиция декоративной фоновой полосы 
-    BACKGROUND_STRIPE_0_X: int = 0
-    BACKGROUND_STRIPE_0_Y: int = 0
-
-    BACKGROUND_STRIPE_1_X: int = 0
-    BACKGROUND_STRIPE_1_Y: int = 50
-
-    BACKGROUND_STRIPE_2_X: int = 100
-    BACKGROUND_STRIPE_2_Y: int = 0
-
-    BACKGROUND_STRIPE_3_X: int = 150
-    BACKGROUND_STRIPE_3_Y: int = 50
 
     # Разделение встречных потоков
     HORIZONTAL_ONCOMING_TRAFFIC_OFFSET: int = -15
@@ -62,7 +48,7 @@ class SimulationConfig:
     PEDESTRIAN_SPEED_VARIATION: float = 0.25
 
     # Точки появления машин (верхний левый угол спрайта)
-    VEHICLE_SPAWN_OFFSET: int = 0  # legacy
+    VEHICLE_SPAWN_OFFSET: int = 0
     VEHICLE_SPAWN_HORIZONTAL_RIGHT_X: int = -40
     VEHICLE_SPAWN_HORIZONTAL_RIGHT_Y: int = 295
     VEHICLE_SPAWN_HORIZONTAL_LEFT_X: int = 800
@@ -77,6 +63,21 @@ class SimulationConfig:
     VEHICLE_ROTATION_LEFT: int = 180
     VEHICLE_ROTATION_DOWN: int = 90
     VEHICLE_ROTATION_UP: int = 270
+
+    # Настройки поворотов машин
+    TURN_PROBABILITY: float = 0.35
+    TURN_RADIUS: int = 40
+    TURN_WAIT_DISTANCE: int = 12
+
+    # Точки начала поворота машин (верхний левый угол спрайта)
+    TURN_POINT_HORIZONTAL_RIGHT_X: int = 372
+    TURN_POINT_HORIZONTAL_RIGHT_Y: int = 295
+    TURN_POINT_HORIZONTAL_LEFT_X: int = 472
+    TURN_POINT_HORIZONTAL_LEFT_Y: int = 270
+    TURN_POINT_VERTICAL_DOWN_X: int = 412
+    TURN_POINT_VERTICAL_DOWN_Y: int = 230
+    TURN_POINT_VERTICAL_UP_X: int = 432
+    TURN_POINT_VERTICAL_UP_Y: int = 335
 
     # Появление пешеходов
     PEDESTRIAN_SPAWN_VERTICAL_X_MIN: int = 320
@@ -149,8 +150,8 @@ class SimulationConfig:
     TRAFFIC_LIGHT_VEHICLE_VERTICAL_Y: int = 125
     TRAFFIC_LIGHT_VEHICLE_VERTICAL_ROTATION: int = 0
 
-    TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_X: int = 470
-    TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_Y: int = 340
+    TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_X: int = 646
+    TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_Y: int = -101
     TRAFFIC_LIGHT_VEHICLE_VERTICAL_OPPOSITE_ROTATION: int = 0
 
     TRAFFIC_LIGHT_VEHICLE_HORIZONTAL_OPPOSITE_X: int = 520
